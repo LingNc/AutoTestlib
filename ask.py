@@ -25,18 +25,20 @@ def compile_cpp_code(cpp_file_path, executable_path):
         exit(1)
 
 # 使用DeepSeek API生成generate.py代码
-def generate_generate_py(prompt, api_key):
-    client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com/beta")
+def generate_generate_py(system_prompt,user_prompt, api_key):
+    client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com/v1")
 
     response = client.chat.completions.create(
-        model="deepseek-coder",
+        model="deepseek-chat",
         messages=[
-            {"role": "system", "content": "You are a helpful assistant"},
-            {"role": "user", "content": prompt},
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
         ],
         stream=False,
-        response_format={'type': 'json_object'},  # 设置响应格式为JSON对象
-        max_tokens=8192,  # 设置最大token数为128k
+        response_format={
+            'type': 'json_object'
+        },  # 设置响应格式为JSON对象
+        max_tokens=4096,  # 设置最大token数为128k
         temperature=0.0
     )
     res=json.loads(response.choices[0].message.content)
@@ -92,7 +94,7 @@ def main():
     api_key = get_api_key()
 
     # 生成generate.py代码使用DeepSeek API
-    prompt = f"""
+    user_prompt = f"""
         **Prompt:**
 
         Hello, you are now a master in AI, computer programming, and ACM. I have some requirements for you to solve. First, let's establish some rules. If the program is multi-instance, it should first ask if there are multiple sets of inputs. If the result is `i`, it means `i` sets. If the result is `0`, it means an unknown number of sets, and you need to specify the range of the number of sets. If the result is `n`, it means multiple instances, and each instance is independent. Then, specify the behavior of each instance. Each instance contains at least one `<input stream>`, and each input stream must include at least one `<type>` or `<input stream>`. The input stream determines the input behavior of the data set, and the type specifies the format of the input data.
@@ -133,15 +135,21 @@ def main():
 
         The comments and prompts in the output should be in Chinese.Please ensure that the output code conforms to Python syntax, has correct indentation, and must not contain any errors.
 
-        Please generate the code and return it in the following JSON format:
-        ```json
-        {{
+        Please strictly adhere to the JSON format, including the proper use of escape characters. Provide me with the correct JSON-formatted output. Do not make any mistakes, as the consequences could be severe. Follow the system's JSON format for the output.
+    """
+    system_prompt="""
+        The user will provide some exam text. Please parse the "code" and "problem_num" and output them in JSON format.
+
+        EXAMPLE INPUT:
+        /* Here are some requirements in the code, etc. */
+        EXAMPLE JSON OUTPUT:
+        {
             "code":"/*there is generate.py code.*/",
             "problem_num":"/*there is the problem num, for example: A*/"
-        }}
-        ```
+        }
+        Please strictly adhere to the JSON format, including the proper use of escape characters. Provide me with the correct JSON-formatted output. Do not make any mistakes, as the consequences could be severe. Follow the system's JSON format for the output.
     """
-    generate_generate_py(prompt, api_key)
+    generate_generate_py(system_prompt,user_prompt, api_key)
 
     # 运行生成的generate.py代码
     run_generate_py()

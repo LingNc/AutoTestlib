@@ -1,2 +1,4 @@
-**/.history
-**/api.key
+*
+!.gitignore
+!ask.py
+!.README.md
