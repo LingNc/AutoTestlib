@@ -1,21 +1,27 @@
 # 编译器设置
 CXX = g++
-CXXFLAGS = -std=c++17 -Wall -Wextra
+CXXFLAGS = -std=c++17 -Wall -Wextra -g -D_GLIBCXX_DEBUG
 
 # 目标可执行文件
-TARGET = testlib
+TARGET = main
 
 # OpenAI库依赖
 OPENAI_LIBS = -lcurl -pthread
 
-# 源文件
-SRC = main.cpp
+# 源文件和目录
+SRC_DIR = src
+INCLUDE_DIR = include
+SRCS = main.cpp $(SRC_DIR)/KeyCircle.cpp
+OBJS = $(SRCS:.cpp=.o)
 
 # 构建规则
 all: $(TARGET)
 
-$(TARGET): $(SRC)
-	$(CXX) $(CXXFLAGS) -o $@ $< $(OPENAI_LIBS)
+$(TARGET): $(OBJS)
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(OPENAI_LIBS)
+
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) -I$(INCLUDE_DIR) -c $< -o $@
 
 # 创建config目录
 config:
@@ -23,7 +29,7 @@ config:
 
 # 清理规则
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGET) $(OBJS)
 
 # 运行程序
 run: $(TARGET)
