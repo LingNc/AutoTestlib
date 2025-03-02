@@ -1,6 +1,7 @@
 #include <iostream>
 #include <unistd.h>
 #include <sys/wait.h>
+#include "lib/ext/boost/include/boost/process.hpp"
 #include <cstdlib>
 int main(){
     pid_t pid=fork();

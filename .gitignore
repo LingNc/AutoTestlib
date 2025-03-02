@@ -1,5 +1,8 @@
 *
 !*/
+
+**/*.key
+
 !.gitignore
 !ask.py
 !.README.md
