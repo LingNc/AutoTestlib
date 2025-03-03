@@ -4,7 +4,7 @@
 #include <string>
 #include <filesystem>
 
-#include "Slef.h"
+#include "Self.h"
 
 // 检查文件或其目录是否存在，如果目录不存在则尝试创建
 bool exist_file(const std::filesystem::path &filePath);

@@ -1,8 +1,20 @@
-#include "Slef.h"
+#ifndef PROCESS_H
+#define PROCESS_H
+
+#include "Self.h"
 #include <vector>
+#include <iostream>
+#include <sstream>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <fcntl.h>
+
+
+// 输出管道选择
+enum TypeOut{
+    OUT,ERR
+};
 class Process{
     // 管道
     int _stdin[2]={ -1,-1 };
@@ -13,121 +25,43 @@ class Process{
     // 路径和参数
     string _path;
     std::vector<char *> _args;
-    string name;
+    string name = "Process";
     // 退出状态
     int exit_code=-1;
     // 缓冲区大小
     int buffer_size=4096;
-    // 输出管道选择
-    enum TypeOut{
-        OUT,
-        ERR
-    };
     // 初始化管道
-    void init_pipe(){
-        if(pipe(_stdin)==-1
-            ||pipe(_stdout)==-1
-            ||pipe(_stderr)==-1){
-            throw std::runtime_error(name+":管道创建错误！");
-        }
-    }
+    void init_pipe();
 
     // 创建子进程并初始化
-    void launch(const char arg[],char *args[]){
-        _pid=fork();
-        // 子进程
-        if(_pid==0){
-            // 输入输出重定向
-            dup2(_stdin[0],STDIN_FILENO);
-            dup2(_stdout[1],STDOUT_FILENO);
-            dup2(_stderr[1],STDERR_FILENO);
+    void launch(const char arg[],char *args[]);
 
-            // 关闭管道
-            close_pipe(0);
-
-            // 运行子程序
-            execvp(arg,args);
-            exit(EXIT_FAILURE);
-        }
-        else if(_pid<0){
-            throw std::runtime_error(name+":子程序运行失败！");
-        }
-        close_pipe(1);
-    }
     // 关闭特定的管道 0子进程
-    void close_pipe(bool flag){
-        ::close(_stdin[flag]);
-        ::close(_stdout[~flag]);
-        ::close(_stderr[~flag]);
-    }
-    // STL转换
-    void save_args(std::vector<string> &args){
-        for(auto &it:args){
-            // 去除const属性
-            _args.push_back(const_cast<char *>(it.c_str()));
-        }
-        _args.push_back(nullptr);
-    }
-public:
-    Process(){}
-    Process(string &cmd,std::vector<string> &args){
-        load(cmd,args);
-        start();
-    }
-    Process(fs::path &cmd,std::vector<string> &args){
-        load(cmd,args);
-        start();
-    }
-    void load(fs::path cmd,std::vector<string> &args){
-        load(cmd.string(),args);
-    }
-    void load(string cmd,std::vector<string> &args){
-        _path=cmd;
-        save_args(args);
-    }
-    void start(){
-        init_pipe();
-        launch(_path.c_str(),_args.data());
-    }
-    int wait(){
-        waitpid(_pid,&exit_code,0);
-        return WEXITSTATUS(exit_code);
-    }
-    Process &write(const string &data){
-        if(_stdin[1]!=-1){
-            if(::write(_stdin[1],data.c_str(),data.size())==-1){
-                throw std::runtime_error(name+":进程读取错误！");
-            }
-        }
-        return *this;
-    }
-    string read(TypeOut type){
-        int stdpipe;
-        if(type==OUT){
-            stdpipe=_stdout[0];
-        }
-        else{
-            stdpipe=_stderr[0];
-        }
-        if(stdpipe==-1)
-            return "";
+    void close_pipe(bool flag);
 
-        char buffer[buffer_size];
-        string result;
-        ssize_t nbytes;
-        while(nbytes=::read(stdpipe,buffer,buffer_size-1)){
-            buffer[nbytes]='\0';
-            result+=buffer;
-        }
-        return result;
-    }
+    // STL转换
+    void save_args(std::vector<string> &args);
+
+public:
+    Process();
+    Process(string &cmd,std::vector<string> &args);
+    Process(fs::path &cmd,std::vector<string> &args);
+
+    void load(fs::path cmd,std::vector<string> &args);
+    void load(string cmd,std::vector<string> &args);
+    // 启动子进程
+    void start();
+    // 等待子进程结束
+    int wait();
+    // 写入数据
+    Process &write(const string &data);
+    // 读取数据
+    string read(TypeOut type);
+    // 刷新输入
+    Process &flush();
     // 关闭子进程的输入
-    void close(){
-        if(_stdin[1]!=-1){
-            ::close(_stdin[1]);
-            _stdin[1]=-1;
-        }
-    }
+    void close();
+
     // 重载运算符
     template<typename T>
     Process &operator<<(const T &data){
@@ -135,12 +69,19 @@ public:
         ss<<data;
         return write(ss.str());
     }
-    Process &operator>>(string &output){
-        output=read(OUT);
+    Process &operator<<(std::ostream &(*pf)(std::ostream &));
+
+    template<typename T>
+    Process &operator>>(T &data){
+        std::stringstream ss;
+        ss<<read(OUT);
+        ss>>data;
         return *this;
     }
-    ~Process(){
-        close_pipe(1);
-    }
+    Process &operator>>(string &output);
 
+    ~Process();
 };
+
+
+#endif // PROCESS_H

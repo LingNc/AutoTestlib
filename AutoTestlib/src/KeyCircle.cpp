@@ -1,5 +1,5 @@
 #include "KeyCircle.h"
-#include "Slef.h"
+#include "Self.h"
 #include <fstream>
 
 bool exist_file(const fs::path &filePath){
