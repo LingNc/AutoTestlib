@@ -43,8 +43,7 @@ int main(){
     args3.parse("find . -name \"*.cpp\" -type f");
 
     // 使用args2运行ls命令
-    pc::Process proc;
-    proc.load("/bin/ls",args2);
+    pc::Process proc("/bin/ls",args2);
     proc.start();
     string output;
     proc>>output;

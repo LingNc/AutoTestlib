@@ -30,8 +30,10 @@ namespace Process{
     public:
         // 构造函数
         Args();
-        Args(const std::vector<string>& arguments);
-        Args(const string& command);
+        // 读取参数列表
+        Args(const std::vector<string> &arguments);
+        // 读取命令行，或者程序名
+        Args(const string &command);
 
         // 添加参数
         Args& add(const string& arg);
@@ -82,10 +84,12 @@ namespace Process{
         void save_args(std::vector<string> &args);
 
     public:
+        // 构造函数
         Process();
-        Process(string &cmd, const Args &args);
+        // 载入文件路径和参数
+        Process(const string &path,const Args &args);
         // 载入命令和参数
-        void load(const string &cmd, const Args &args);
+        void load(const string &path, const Args &args);
         // 启动子进程
         void start();
         // 等待子进程结束

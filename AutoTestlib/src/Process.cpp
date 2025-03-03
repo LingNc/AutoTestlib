@@ -204,15 +204,15 @@ void pc::Process::save_args(std::vector<string> &args){
 
 pc::Process::Process(){}
 
-pc::Process::Process(string &cmd,const Args &args): _args(args){
-    _path=cmd;
+pc::Process::Process(string &path,const Args &args): _args(args){
+    _path=path;
     if(args.size()>0){
         name=args.get_program_name();
     }
 }
 
-void pc::Process::load(const string &cmd,const Args &args){
-    _path=cmd;
+void pc::Process::load(const string &path,const Args &args){
+    _path=path;
     _args=args;
     if(args.size()>0){
         name=args.get_program_name();
