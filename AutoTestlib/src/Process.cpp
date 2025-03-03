@@ -3,7 +3,164 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-void Process::init_pipe(){
+namespace pc=Process;
+
+// Args类实现
+pc::Args::Args(){}
+
+pc::Args::Args(const std::vector<string> &arguments): _args(arguments){
+    prepare_c_args();
+}
+
+pc::Args::Args(const string &program_name){
+    _args.push_back(program_name);
+    prepare_c_args();
+}
+
+// 新增：从命令行字符串构造
+pc::Args::Args(const string &command_line,bool parse_command){
+    if(parse_command){
+        parse(command_line);
+    }
+    else{
+        _args.push_back(command_line);
+    }
+    prepare_c_args();
+}
+
+pc::Args &pc::Args::add(const string &arg){
+    _args.push_back(arg);
+    prepare_c_args();
+    return *this;
+}
+
+pc::Args &pc::Args::add(const std::vector<string> &arguments){
+    _args.insert(_args.end(),arguments.begin(),arguments.end());
+    prepare_c_args();
+    return *this;
+}
+
+pc::Args &pc::Args::set_program_name(const string &name){
+    if(_args.empty()){
+        _args.push_back(name);
+    }
+    else{
+        _args[0]=name;
+    }
+    prepare_c_args();
+    return *this;
+}
+
+void pc::Args::clear(){
+    _args.clear();
+    _c_args.clear();
+}
+
+size_t pc::Args::size() const{
+    return _args.size();
+}
+
+char **pc::Args::data(){
+    prepare_c_args();
+    return _c_args.data();
+}
+
+std::vector<string> pc::Args::get_args() const{
+    return _args;
+}
+
+string pc::Args::get_program_name() const{
+    if(!_args.empty()){
+        return _args[0];
+    }
+    return "";
+}
+
+string &pc::Args::operator[](size_t index){
+    return _args[index];
+}
+
+const string &pc::Args::operator[](size_t index) const{
+    return _args[index];
+}
+
+void pc::Args::prepare_c_args(){
+    _c_args.clear();
+    for(const auto &arg:_args){
+        _c_args.push_back(const_cast<char *>(arg.c_str()));
+    }
+    _c_args.push_back(nullptr); // execvp需要以nullptr结尾
+}
+
+// 新增：解析命令行字符串
+pc::Args &pc::Args::parse(const string &command_line){
+    enum State{ NORMAL,IN_QUOTE,IN_DQUOTE };
+    State state=NORMAL;
+    string current_arg;
+    bool escaped=false;
+
+    for(char c:command_line){
+        if(escaped){
+            current_arg+=c;
+            escaped=false;
+            continue;
+        }
+
+        switch(state){
+        case NORMAL:
+            if(c=='\\'){
+                escaped=true;
+            }
+            else if(c=='\''){
+                state=IN_QUOTE;
+            }
+            else if(c=='\"'){
+                state=IN_DQUOTE;
+            }
+            else if(std::isspace(c)){
+                if(!current_arg.empty()){
+                    _args.push_back(current_arg);
+                    current_arg.clear();
+                }
+            }
+            else{
+                current_arg+=c;
+            }
+            break;
+
+        case IN_QUOTE:
+            if(c=='\''){
+                state=NORMAL;
+            }
+            else{
+                current_arg+=c;
+            }
+            break;
+
+        case IN_DQUOTE:
+            if(c=='\\'){
+                escaped=true;
+            }
+            else if(c=='\"'){
+                state=NORMAL;
+            }
+            else{
+                current_arg+=c;
+            }
+            break;
+        }
+    }
+
+    // 处理最后一个参数
+    if(!current_arg.empty()){
+        _args.push_back(current_arg);
+    }
+
+    prepare_c_args();
+    return *this;
+}
+
+void pc::Process::init_pipe(){
     if(pipe(_stdin)==-1
         ||pipe(_stdout)==-1
         ||pipe(_stderr)==-1){
@@ -11,7 +168,7 @@ void Process::init_pipe(){
     }
 }
 
-void Process::launch(const char arg[],char *args[]){
+void pc::Process::launch(const char arg[],char *args[]){
     _pid=fork();
     // 子进程
     if(_pid==0){
@@ -33,7 +190,7 @@ void Process::launch(const char arg[],char *args[]){
     close_pipe(0);
 }
 
-void Process::close_pipe(bool flag){
+void pc::Process::close_pipe(bool flag){
     // 确保先关闭读端再关闭写端
     if(_stdin[flag]!=-1){
         ::close(_stdin[flag]);
@@ -49,46 +206,51 @@ void Process::close_pipe(bool flag){
     }
 }
 
-void Process::save_args(std::vector<string> &args){
+// 修改save_args方法使用Args类
+void pc::Process::save_args(std::vector<string> &args){
     _args.clear(); // 清除旧的参数
-    for(auto &it:args){
-        // 去除const属性
-        _args.push_back(const_cast<char *>(it.c_str()));
+    _args.add(args);
+}
+
+pc::Process::Process(){}
+
+pc::Process::Process(string &cmd,const Args &args): _args(args){
+    _path=cmd;
+    if(args.size()>0){
+        name=args.get_program_name();
     }
-    _args.push_back(nullptr);
 }
 
-Process::Process(){}
-
-Process::Process(string &cmd,std::vector<string> &args){
-    load(cmd,args);
+pc::Process::Process(fs::path &cmd,const Args &args): _args(args){
+    _path=cmd.string();
+    if(args.size()>0){
+        name=args.get_program_name();
+    }
 }
 
-Process::Process(fs::path &cmd,std::vector<string> &args){
-    load(cmd,args);
-}
-
-void Process::load(fs::path cmd,std::vector<string> &args){
+void pc::Process::load(fs::path cmd,const Args &args){
     load(cmd.string(),args);
 }
 
-void Process::load(string cmd,std::vector<string> &args){
+void pc::Process::load(string cmd,const Args &args){
     _path=cmd;
-    name=args[0];
-    save_args(args);
+    _args=args;
+    if(args.size()>0){
+        name=args.get_program_name();
+    }
 }
 
-void Process::start(){
+void pc::Process::start(){
     init_pipe();
     launch(_path.c_str(),_args.data());
 }
 
-int Process::wait(){
+int pc::Process::wait(){
     waitpid(_pid,&exit_code,0);
     return WEXITSTATUS(exit_code);
 }
 
-Process &Process::write(const string &data){
+pc::Process &pc::Process::write(const string &data){
     if(_stdin[1]!=-1){
         if(::write(_stdin[1],data.c_str(),data.size())==-1){
             throw std::runtime_error(name+":进程读取错误！");
@@ -97,7 +259,7 @@ Process &Process::write(const string &data){
     return *this;
 }
 
-string Process::read(TypeOut type){
+string pc::Process::read(TypeOut type){
     int stdpipe;
     if(type==OUT){
         stdpipe=_stdout[0];
@@ -113,8 +275,8 @@ string Process::read(TypeOut type){
     ssize_t nbytes;
 
     // 设置非阻塞模式以避免无限等待
-    int flags=fcntl(stdpipe,F_GETFL,0);
-    fcntl(stdpipe,F_SETFL,flags|O_NONBLOCK);
+    // int flags=fcntl(stdpipe,F_GETFL,0);
+    // fcntl(stdpipe,F_SETFL,flags|O_NONBLOCK);
 
     while((nbytes=::read(stdpipe,buffer,buffer_size-1))>0){
         buffer[nbytes]='\0';
@@ -122,36 +284,37 @@ string Process::read(TypeOut type){
     }
 
     // 恢复阻塞模式
-    fcntl(stdpipe,F_SETFL,flags);
+    // fcntl(stdpipe,F_SETFL,flags);
     return result;
 }
 
-void Process::close(){
+void pc::Process::close(){
     if(_stdin[1]!=-1){
         ::close(_stdin[1]);
         _stdin[1]=-1;
     }
 }
 
-Process &Process::operator>>(string &output){
+pc::Process &pc::Process::operator>>(string &output){
     output=read(OUT);
     return *this;
 }
 
-Process &Process::operator<<(std::ostream &(*pf)(std::ostream &)){
-    if(pf==static_cast<std::ostream &(*)(std::ostream &)>(std::endl)){
+pc::Process &pc::Process::operator<<(std::ostream &(*pf)(std::ostream &)){
+    if(pf==static_cast<std::ostream&(*)(std::ostream &)>(std::endl)){
         write("\n");
         flush();
     }
     return *this;
 }
 
-Process &Process::flush(){
+pc::Process &pc::Process::flush(){
     return *this;
 }
 
-Process::~Process(){
+pc::Process::~Process(){
     close();
     close_pipe(1);
     wait();
 }
+
