@@ -31,9 +31,7 @@ namespace Process{
         // 构造函数
         Args();
         Args(const std::vector<string>& arguments);
-        Args(const string& program_name);
-        // 新增：从命令行字符串构造
-        Args(const string& command_line, bool parse_command);
+        Args(const string& command);
 
         // 添加参数
         Args& add(const string& arg);
@@ -76,23 +74,18 @@ namespace Process{
         int buffer_size=4096;
         // 初始化管道
         void init_pipe();
-
         // 创建子进程并初始化
         void launch(const char arg[],char *args[]);
-
         // 关闭特定的管道 0子进程
         void close_pipe(bool flag);
-
         // STL转换
         void save_args(std::vector<string> &args);
 
     public:
         Process();
         Process(string &cmd, const Args &args);
-        Process(fs::path &cmd, const Args &args);
-
-        void load(fs::path cmd, const Args &args);
-        void load(string cmd, const Args &args);
+        // 载入命令和参数
+        void load(const string &cmd, const Args &args);
         // 启动子进程
         void start();
         // 等待子进程结束

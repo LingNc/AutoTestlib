@@ -36,7 +36,7 @@ int main(){
     args1.add("-a").add("-b").add("文件名");
 
     // 示例2：使用新的命令行解析功能
-    pc::Args args2("ls -l -d -F",true);  // true表示解析命令行
+    pc::Args args2("ls -l -d -F");
 
     // 示例3：先创建Args对象，然后解析命令行
     pc::Args args3;

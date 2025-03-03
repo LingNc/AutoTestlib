@@ -12,21 +12,11 @@ pc::Args::Args(const std::vector<string> &arguments): _args(arguments){
     prepare_c_args();
 }
 
-pc::Args::Args(const string &program_name){
-    _args.push_back(program_name);
+pc::Args::Args(const string &command){
+    parse(command);
     prepare_c_args();
 }
 
-// 新增：从命令行字符串构造
-pc::Args::Args(const string &command_line,bool parse_command){
-    if(parse_command){
-        parse(command_line);
-    }
-    else{
-        _args.push_back(command_line);
-    }
-    prepare_c_args();
-}
 
 pc::Args &pc::Args::add(const string &arg){
     _args.push_back(arg);
@@ -221,18 +211,7 @@ pc::Process::Process(string &cmd,const Args &args): _args(args){
     }
 }
 
-pc::Process::Process(fs::path &cmd,const Args &args): _args(args){
-    _path=cmd.string();
-    if(args.size()>0){
-        name=args.get_program_name();
-    }
-}
-
-void pc::Process::load(fs::path cmd,const Args &args){
-    load(cmd.string(),args);
-}
-
-void pc::Process::load(string cmd,const Args &args){
+void pc::Process::load(const string &cmd,const Args &args){
     _path=cmd;
     _args=args;
     if(args.size()>0){
