@@ -17,10 +17,6 @@
 
 
 namespace process{
-    // 输出管道选择
-    enum TypeOut{
-        OUT,ERR
-    };
     // 计时器
     class Timer{
     private:
@@ -78,9 +74,11 @@ namespace process{
     };
 
     // 进程类
+    // 程序状态
+    enum Status{ RUNNING,STOP,ERROR,LONGTIME };
+    // 输出管道选择
+    enum TypeOut{ OUT,ERR };
     class Process{
-        // 程序状态
-        enum Status{ RUNNING,STOP,ERROR };
         // 当前进程状态
         Status _status=STOP;
         // 管道
@@ -99,6 +97,8 @@ namespace process{
         std::map<string,string> _env_vars;
         // 计时器
         Timer _timer;
+        // 内存限制
+        int _memsize=0;
         // 输出是否空
         bool _empty=true;
         // 是否是阻塞状态
@@ -133,7 +133,7 @@ namespace process{
         // 启动子进程
         void start();
         // 等待子进程结束
-        int wait();
+        string wait();
         // 读取数据
         string read(TypeOut type);
         // 读一行
@@ -149,7 +149,7 @@ namespace process{
         // 流是否为空
         bool empty();
         // 设置阻塞状态
-        void setBlock(bool status);
+        void set_block(bool status);
         // 设置环境变量
         Process &set_env(const std::string &name,const std::string &value);
         // 获取环境变量
@@ -160,10 +160,17 @@ namespace process{
         void clear_env();
         // 检查进程是否在运行
         bool is_running();
+
         // 设置超时
         Process &set_timeout(int timeout_ms);
         // 取消超时
         Process &cancel_timeout();
+
+        // 设置内存限制
+        bool set_memout(int memout_mb);
+        // 取消内存限制
+        bool cancel_memout();
+
         // 重载运算符
         template<typename T>
         Process &operator<<(const T &data){

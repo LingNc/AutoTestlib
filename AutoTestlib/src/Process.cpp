@@ -1,5 +1,6 @@
 #include "../include/Process.h"
 #include <sstream>
+#include <sys/resource.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
@@ -175,10 +176,12 @@ void pc::Timer::stop(){
     }
 }
 
+// 进程类
 pc::Process &pc::Process::set_timeout(int timeout_ms){
     _timer.start(timeout_ms,[this](){
         if(is_running()){
             kill(SIGKILL);
+            _status=LONGTIME;
         }
         });
     return *this;
@@ -187,6 +190,14 @@ pc::Process &pc::Process::set_timeout(int timeout_ms){
 pc::Process &pc::Process::cancel_timeout(){
     _timer.stop();
     return *this;
+}
+
+bool pc::Process::set_memout(int memout_mb){
+    _memsize=memout_mb;
+}
+
+bool pc::Process::cancel_memout(){
+    _memsize=0;
 }
 
 void pc::Process::init_pipe(){
@@ -205,6 +216,19 @@ void pc::Process::launch(const char arg[],char *args[]){
         for(const auto &[name,value]:_env_vars){
             setenv(name.c_str(),value.c_str(),1);
         }
+
+        // 限制内存大小
+        if(_memsize!=0){
+            struct rlimit rl;
+            rl.rlim_cur=_memsize*1024*1024; // 软限制
+            rl.rlim_max=_memsize*1024*1024; // 硬限制
+
+            if(setrlimit(RLIMIT_AS,&rl)==-1){
+                perror("setrlimit failed");
+                exit(EXIT_FAILURE);
+            }
+        }
+
         // 输入输出重定向
         dup2(_stdin[0],STDIN_FILENO);
         dup2(_stdout[1],STDOUT_FILENO);
@@ -269,13 +293,14 @@ void pc::Process::start(){
     launch(_path.c_str(),_args.data());
 }
 
-int pc::Process::wait(){
+string pc::Process::wait(){
     int status;
     waitpid(_pid,&status,0);
     _exit_code=status;
     _pid=-1;
-    _status=STOP;
-    return WEXITSTATUS(_exit_code);
+    if(_status==LONGTIME){
+        return "";
+    }
 }
 
 pc::Process &pc::Process::write(const string &data){
@@ -387,7 +412,7 @@ bool pc::Process::empty(){
     return _empty;
 }
 
-void pc::Process::setBlock(bool status){
+void pc::Process::set_block(bool status){
     _blocked=status;
 }
 
