@@ -181,7 +181,7 @@ pc::Process &pc::Process::set_timeout(int timeout_ms){
     _timer.start(timeout_ms,[this](){
         if(is_running()){
             kill(SIGKILL);
-            _status=LONGTIME;
+            _status=TIMEOUT;
         }
         });
     return *this;
@@ -293,13 +293,45 @@ void pc::Process::start(){
     launch(_path.c_str(),_args.data());
 }
 
-string pc::Process::wait(){
+JudgeCode pc::Process::wait(){
     int status;
     waitpid(_pid,&status,0);
     _exit_code=status;
     _pid=-1;
-    if(_status==LONGTIME){
-        return "";
+    if(_status==TIMEOUT){
+        return TimeLimitEXceeded;
+    }
+    else if(WIFEXITED(status)){
+        int temp=WEXITSTATUS(status);
+        if(temp==0){
+            _status=STOP;
+            return Waiting;
+        }
+        else{
+            _status=ERROR;
+            return Waiting;
+        }
+    }
+    else if(WIFSIGNALED(status)){
+        int signal=WTERMSIG(status);
+        _status=RE;
+        switch(signal){
+        case SIGSEGV:
+            return RuntimeError;
+            break;
+        case SIGABRT||SIGKILL:
+            return MemoryLimitExceeded;
+            break;
+        case SIGFPE:
+            return FloatingPointError;
+            break;
+        default:
+            return RuntimeError;
+        }
+    }
+    else{
+        _status=RE;
+        return RuntimeError;
     }
 }
 

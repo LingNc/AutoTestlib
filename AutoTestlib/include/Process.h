@@ -14,6 +14,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <fcntl.h>
+#include "JudgeSign.h"
 
 
 namespace process{
@@ -75,7 +76,7 @@ namespace process{
 
     // 进程类
     // 程序状态
-    enum Status{ RUNNING,STOP,ERROR,LONGTIME };
+    enum Status{ RUNNING,STOP,ERROR,TIMEOUT,MEMOUT,RE };
     // 输出管道选择
     enum TypeOut{ OUT,ERR };
     class Process{
@@ -133,7 +134,7 @@ namespace process{
         // 启动子进程
         void start();
         // 等待子进程结束
-        string wait();
+        JudgeCode wait();
         // 读取数据
         string read(TypeOut type);
         // 读一行
@@ -153,7 +154,7 @@ namespace process{
         // 设置环境变量
         Process &set_env(const std::string &name,const std::string &value);
         // 获取环境变量
-        std::string get_env(const std::string &name) const;
+        string get_env(const std::string &name) const;
         // 清除特定环境变量
         void unset_env(const std::string &name);
         // 清除所有设置的环境变量

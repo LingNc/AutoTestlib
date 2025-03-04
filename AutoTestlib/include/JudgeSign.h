@@ -6,14 +6,16 @@
 enum JudgeCode{
     Waiting,
     Compiling,
-    AC,
-    CE,
-    WA,
-    TLE,
-    MLE,
-    OLE,
-    RE,
-    PE
+    Queuing,
+    Accept,
+    CompilationError,
+    WrongAnswer,
+    TimeLimitEXceeded,
+    MemoryLimitExceeded,
+    OutputLimitExceeded,
+    FloatingPointError,
+    RuntimeError,
+    PresentationError
 };
 
 
