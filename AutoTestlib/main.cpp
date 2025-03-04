@@ -10,7 +10,7 @@
 #include "include/Self.h"
 
 namespace ai=openai;
-namespace pc=Process;
+namespace pc=process;
 
 fs::path configPath="./config";
 string keyName="openai.key";
@@ -36,18 +36,21 @@ int main(){
     args1.add("-a").add("-b").add("文件名");
 
     // 示例2：使用新的命令行解析功能
-    pc::Args args2("ls -l -d -F");
+    pc::Args args2("bash");
 
     // 示例3：先创建Args对象，然后解析命令行
     pc::Args args3;
     args3.parse("find . -name \"*.cpp\" -type f");
 
     // 使用args2运行ls命令
-    pc::Process proc("/bin/ls",args2);
+    pc::Process proc("/bin/bash",args2);
     proc.start();
+    proc<<"ls -l"<<std::endl;
     string output;
-    proc>>output;
-    std::cout<<"ls命令输出:\n"<<output<<std::endl;
-
+    while(1){
+        output=proc.getline();
+        if(proc.empty()) break;
+        std::cout<<output<<std::endl;
+    }
     return 0;
 }

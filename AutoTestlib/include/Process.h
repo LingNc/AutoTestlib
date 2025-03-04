@@ -11,7 +11,7 @@
 #include <fcntl.h>
 
 
-namespace Process{
+namespace process{
     // 输出管道选择
     enum TypeOut{
         OUT,ERR
@@ -36,26 +36,26 @@ namespace Process{
         Args(const string &command);
 
         // 添加参数
-        Args& add(const string& arg);
+        Args &add(const string &arg);
         // 添加多个参数
-        Args& add(const std::vector<string>& arguments);
+        Args &add(const std::vector<string> &arguments);
         // 设置程序名称（第一个参数）
-        Args& set_program_name(const string& name);
+        Args &set_program_name(const string &name);
         // 新增：解析命令行字符串
-        Args& parse(const string& command_line);
+        Args &parse(const string &command_line);
         // 清除所有参数
         void clear();
         // 获取参数数量
         size_t size() const;
         // 获取C风格参数，用于execvp
-        char** data();
+        char **data();
         // 获取所有参数的复制
         std::vector<string> get_args() const;
         // 获取程序名称
         string get_program_name() const;
         // 获取指定位置的参数
-        string& operator[](size_t index);
-        const string& operator[](size_t index) const;
+        string &operator[](size_t index);
+        const string &operator[](size_t index) const;
     };
 
     // 进程类
@@ -70,6 +70,12 @@ namespace Process{
         string _path;
         Args _args;
         string name="Process";
+        // 缓冲区
+        string _buffer[2];
+        // 输出是否空
+        bool _empty=true;
+        // 是否是阻塞状态
+        bool _blocked=true;
         // 退出状态
         int exit_code=-1;
         // 缓冲区大小
@@ -82,27 +88,39 @@ namespace Process{
         void close_pipe(bool flag);
         // STL转换
         void save_args(std::vector<string> &args);
-
+        // 写入数据
+        Process &write(const string &data);
+        // 读字符
+        char read_char(TypeOut OUT);
+        // 读取一行
+        string read_line(TypeOut type,int timeout_ms=100);
     public:
         // 构造函数
         Process();
         // 载入文件路径和参数
         Process(const string &path,const Args &args);
         // 载入命令和参数
-        void load(const string &path, const Args &args);
+        void load(const string &path,const Args &args);
         // 启动子进程
         void start();
         // 等待子进程结束
         int wait();
-        // 写入数据
-        Process &write(const string &data);
         // 读取数据
         string read(TypeOut type);
+        // 读一行
+        string getline();
+        // 读字符
+        char getc();
         // 刷新输入
         Process &flush();
-        // 关闭子进程的输入
+        // 关闭所有管道
         void close();
-
+        // 终止进程
+        bool kill(int signal=SIGKILL);
+        // 流是否为空
+        bool empty();
+        // 设置阻塞状态
+        void set_block(bool status);
         // 重载运算符
         template<typename T>
         Process &operator<<(const T &data){
@@ -115,11 +133,10 @@ namespace Process{
         template<typename T>
         Process &operator>>(T &data){
             std::stringstream ss;
-            ss<<read(OUT);
+            ss<<read_line(OUT);
             ss>>data;
             return *this;
         }
-        Process &operator>>(string &output);
 
         ~Process();
     };

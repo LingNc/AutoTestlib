@@ -3,7 +3,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-namespace pc=Process;
+namespace pc=process;
 
 // Args类实现
 pc::Args::Args(){}
@@ -204,7 +204,7 @@ void pc::Process::save_args(std::vector<string> &args){
 
 pc::Process::Process(){}
 
-pc::Process::Process(string &path,const Args &args): _args(args){
+pc::Process::Process(const string &path,const Args &args): _args(args){
     _path=path;
     if(args.size()>0){
         name=args.get_program_name();
@@ -226,6 +226,7 @@ void pc::Process::start(){
 
 int pc::Process::wait(){
     waitpid(_pid,&exit_code,0);
+    _pid=-1;
     return WEXITSTATUS(exit_code);
 }
 
@@ -239,44 +240,143 @@ pc::Process &pc::Process::write(const string &data){
 }
 
 string pc::Process::read(TypeOut type){
-    int stdpipe;
-    if(type==OUT){
-        stdpipe=_stdout[0];
-    }
-    else{
-        stdpipe=_stderr[0];
-    }
-    if(stdpipe==-1)
-        return "";
+    int stdpipe=(type==OUT)?_stdout[0]:_stderr[0];
+    if(stdpipe==-1) return "";
 
     char buffer[buffer_size];
     string result;
-    ssize_t nbytes;
 
     // 设置非阻塞模式以避免无限等待
-    // int flags=fcntl(stdpipe,F_GETFL,0);
-    // fcntl(stdpipe,F_SETFL,flags|O_NONBLOCK);
+    int flags;
+    if(!_blocked){
+        flags=fcntl(stdpipe,F_GETFL,0);
+        fcntl(stdpipe,F_SETFL,flags|O_NONBLOCK);
+    }
 
-    while((nbytes=::read(stdpipe,buffer,buffer_size-1))>0){
+
+    int nbytes;
+    while(true){
+        nbytes=::read(stdpipe,buffer,buffer_size-1);
+        if(nbytes<=0) break;
         buffer[nbytes]='\0';
         result+=buffer;
     }
 
     // 恢复阻塞模式
-    // fcntl(stdpipe,F_SETFL,flags);
+    if(!_blocked){
+        fcntl(stdpipe,F_SETFL,flags);
+    }
+    _empty=(result=="")?true:false;
     return result;
 }
 
-void pc::Process::close(){
-    if(_stdin[1]!=-1){
-        ::close(_stdin[1]);
-        _stdin[1]=-1;
-    }
+char pc::Process::read_char(TypeOut type){
+    // 获取合适的管道文件描述符
+    int stdpipe=(type==OUT)?_stdout[0]:_stderr[0];
+    if(stdpipe==-1) return '\0';
+
+    char ch;
+    if(::read(stdpipe,&ch,1)>0) return ch;
+    else return 0;
 }
 
-pc::Process &pc::Process::operator>>(string &output){
-    output=read(OUT);
-    return *this;
+string pc::Process::read_line(TypeOut type,int timeout_ms){
+    // 获取合适的管道文件描述符
+    int stdpipe=(type==OUT)?_stdout[0]:_stderr[0];
+    if(stdpipe==-1) return "";
+
+    fd_set read_fds;      // 定义一个文件描述符集，用于select监控
+    struct timeval tv;    // 定义超时结构
+
+    FD_ZERO(&read_fds);           // 清空文件描述符集
+    FD_SET(stdpipe,&read_fds);   // 添加管道文件描述符到集合中
+
+    // 设置超时时间
+    tv.tv_sec=timeout_ms/1000;                // 秒部分
+    tv.tv_usec=(timeout_ms%1000)*1000;      // 微秒部分
+
+    string line;
+    char c;
+
+    // 使用select检查是否有数据可读，带超时
+    if(select(stdpipe+1,&read_fds,NULL,NULL,&tv)>0){
+        // 有数据可读，开始读取一行数据
+        while(::read(stdpipe,&c,1)>0){
+            if(c=='\n') break;  // 遇到换行符结束
+            line+=c;             // 将字符添加到结果中
+
+            // 读完一个字符后，立即检查是否还有更多数据
+            FD_ZERO(&read_fds);
+            FD_SET(stdpipe,&read_fds);
+            tv.tv_sec=0;
+            tv.tv_usec=0;  // 立即返回，不等待
+
+            // 如果没有更多即时可读的数据，就退出
+            if(select(stdpipe+1,&read_fds,NULL,NULL,&tv)<=0){
+                break;
+            }
+        }
+    }
+    _empty=(line=="")?true:false;
+    return line;
+}
+
+char pc::Process::getc(){
+    int stdpipe=_stdout[0];
+    fd_set read_fds;      // 定义一个文件描述符集，用于select监控
+    struct timeval tv;    // 定义超时结构
+
+    FD_ZERO(&read_fds);           // 清空文件描述符集
+    FD_SET(stdpipe,&read_fds);   // 添加管道文件描述符到集合中
+
+    // 设置超时时间
+    int timeout_ms=10;
+    tv.tv_sec=timeout_ms/1000;                // 秒部分
+    tv.tv_usec=(timeout_ms%1000)*1000;      // 微秒部分
+
+    char ch=0;
+    if(select(stdpipe+1,&read_fds,NULL,NULL,&tv)>0){
+        ch=read_char(OUT);
+    }
+    return ch;
+}
+
+string pc::Process::getline(){
+    return read_line(OUT,10);
+}
+
+bool pc::Process::empty(){
+    return _empty;
+}
+
+void pc::Process::set_block(bool status){
+    _blocked=status;
+}
+
+void pc::Process::close(){
+    close_pipe(1);
+    close_pipe(0);
+}
+
+bool pc::Process::kill(int signal){
+    if(_pid<=0){
+        // 程序已经结束
+        return false;
+    }
+    // 发送终止信号
+    int result=::kill(_pid,signal);
+
+    if(result==0){
+        // 发送成功
+        if(signal==SIGKILL||signal==SIGTERM){
+            // 等待进程结束
+            wait();
+            // 关闭管道
+            close();
+        }
+        return true;
+    }
+    return false;
 }
 
 pc::Process &pc::Process::operator<<(std::ostream &(*pf)(std::ostream &)){
