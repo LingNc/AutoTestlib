@@ -6,6 +6,10 @@
 #include <iostream>
 #include <sstream>
 #include <map>
+#include <chrono>
+#include <thread>
+#include <atomic>
+#include <functional>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -17,6 +21,20 @@ namespace process{
     enum TypeOut{
         OUT,ERR
     };
+    // 计时器
+    class Timer{
+    private:
+        std::thread thread;
+        std::atomic<bool> running{ false };
+
+    public:
+        Timer()=default;
+        ~Timer();
+
+        void start(int timeout_ms,std::function<void()> callback);
+        void stop();
+    };
+
     // 参数类
     class Args{
     private:
@@ -64,7 +82,7 @@ namespace process{
         // 程序状态
         enum Status{ RUNNING,STOP,ERROR };
         // 当前进程状态
-        Status _status = STOP;
+        Status _status=STOP;
         // 管道
         int _stdin[2]={ -1,-1 };
         int _stdout[2]={ -1,-1 };
@@ -79,6 +97,8 @@ namespace process{
         string _buffer[2];
         // 环境变量存储
         std::map<string,string> _env_vars;
+        // 计时器
+        Timer _timer;
         // 输出是否空
         bool _empty=true;
         // 是否是阻塞状态
@@ -86,9 +106,9 @@ namespace process{
         // 是否启用颜色
         bool _enable_color=false;
         // 退出状态
-        int exit_code=-1;
+        int _exit_code=-1;
         // 缓冲区大小
-        int buffer_size=4096;
+        int _buffer_size=4096;
         // 初始化管道
         void init_pipe();
         // 创建子进程并初始化
@@ -140,6 +160,10 @@ namespace process{
         void clear_env();
         // 检查进程是否在运行
         bool is_running();
+        // 设置超时
+        Process &set_timeout(int timeout_ms);
+        // 取消超时
+        Process &cancel_timeout();
         // 重载运算符
         template<typename T>
         Process &operator<<(const T &data){

@@ -151,6 +151,44 @@ pc::Args &pc::Args::parse(const string &command_line){
     return *this;
 }
 
+// 计时器类
+pc::Timer::~Timer(){
+    stop();
+}
+
+void pc::Timer::start(int timeout_ms,std::function<void()> callback){
+    stop();
+    running=true;
+    thread=std::thread([this,timeout_ms,callback](){
+        // 使用 sleep_for 等待指定时间
+        std::this_thread::sleep_for(std::chrono::milliseconds(timeout_ms));
+        if(running){
+            callback();
+        }
+        });
+}
+
+void pc::Timer::stop(){
+    running=false;
+    if(thread.joinable()){
+        thread.join();
+    }
+}
+
+pc::Process &pc::Process::set_timeout(int timeout_ms){
+    _timer.start(timeout_ms,[this](){
+        if(is_running()){
+            kill(SIGKILL);
+        }
+        });
+    return *this;
+}
+
+pc::Process &pc::Process::cancel_timeout(){
+    _timer.stop();
+    return *this;
+}
+
 void pc::Process::init_pipe(){
     if(pipe(_stdin)==-1
         ||pipe(_stdout)==-1
@@ -232,10 +270,12 @@ void pc::Process::start(){
 }
 
 int pc::Process::wait(){
-    waitpid(_pid,&exit_code,0);
+    int status;
+    waitpid(_pid,&status,0);
+    _exit_code=status;
     _pid=-1;
     _status=STOP;
-    return WEXITSTATUS(exit_code);
+    return WEXITSTATUS(_exit_code);
 }
 
 pc::Process &pc::Process::write(const string &data){
@@ -252,7 +292,7 @@ string pc::Process::read(TypeOut type){
     int stdpipe=(type==OUT)?_stdout[0]:_stderr[0];
     if(stdpipe==-1) return "";
 
-    char buffer[buffer_size];
+    char buffer[_buffer_size];
     string result;
 
     // 设置非阻塞模式以避免无限等待
@@ -265,7 +305,7 @@ string pc::Process::read(TypeOut type){
 
     int nbytes;
     while(true){
-        nbytes=::read(stdpipe,buffer,buffer_size-1);
+        nbytes=::read(stdpipe,buffer,_buffer_size-1);
         if(nbytes<=0) break;
         buffer[nbytes]='\0';
         result+=buffer;
