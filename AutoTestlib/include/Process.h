@@ -118,8 +118,6 @@ namespace process{
         void close_pipe(bool flag);
         // STL转换
         void save_args(std::vector<string> &args);
-        // 写入数据
-        Process &write(const string &data);
         // 读字符
         char read_char(TypeOut OUT);
         // 读取一行
@@ -137,6 +135,8 @@ namespace process{
         JudgeCode wait();
         // 读取数据
         string read(TypeOut type);
+        // 写入数据
+        Process &write(const string &data);
         // 读一行
         string getline();
         // 读字符

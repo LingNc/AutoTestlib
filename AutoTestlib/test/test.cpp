@@ -148,6 +148,155 @@ void test_process() {
     report_test("Process超时设置",
         duration.count() < 1500 && // 确保没有等待完整的2秒
         result == JudgeCode::TimeLimitEXceeded);
+
+    // 新增测试：获取字符
+    pc::Process echoCharProc("/bin/echo", pc::Args("echo").add("ABC"));
+    echoCharProc.start();
+    char c = echoCharProc.getc();
+    report_test("Process单字符读取", c == 'A');
+
+    // 新增测试：完整的管道输入/输出
+    pc::Process sortProc("/bin/sort", pc::Args("sort"));
+    sortProc.start();
+    sortProc << "c" << std::endl;
+    sortProc << "a" << std::endl;
+    sortProc << "b" << std::endl;
+
+    // 关闭标准输入以通知sort完成输入
+    sortProc.write(""); // 触发flush
+    sortProc.close();
+
+    std::string sortOut1 = sortProc.getline();
+    std::string sortOut2 = sortProc.getline();
+    std::string sortOut3 = sortProc.getline();
+    report_test("Process排序输入输出",
+                sortOut1 == "a" &&
+                sortOut2 == "b" &&
+                sortOut3 == "c");
+
+    // 新增测试：空参数构造和延迟加载
+    pc::Process delayedProc;
+    delayedProc.load("/bin/echo", pc::Args("echo").add("延迟加载测试"));
+    delayedProc.start();
+    std::string delayedOutput = delayedProc.getline();
+    report_test("Process延迟加载", delayedOutput == "延迟加载测试");
+
+    // 新增测试：内存限制
+    pc::Process memProc("/usr/bin/python3", pc::Args("python3").add("-c").add("import numpy as np; a = np.ones((100, 100))"));
+    memProc.set_memout(10); // 10MB内存限制
+    memProc.start();
+    JudgeCode memResult = memProc.wait();
+    report_test("Process无内存超限", memResult != JudgeCode::MemoryLimitExceeded);
+
+    // 新增测试：严格内存限制 (创建一个超大数组应该会超出内存限制)
+    pc::Process memLimitProc("/usr/bin/python3", pc::Args("python3").add("-c").add("import numpy as np; a = np.ones((5000, 5000))"));
+    memLimitProc.set_memout(1); // 1MB内存限制，应该会超出
+    memLimitProc.start();
+    JudgeCode memLimitResult = memLimitProc.wait();
+    report_test("Process内存限制触发",
+        memLimitResult==JudgeCode::MemoryLimitExceeded);// ||
+                // memLimitResult == JudgeCode::RuntimeError); // 可能触发RuntimeError或MemoryLimitExceeded
+
+    // 新增测试：环境变量操作
+    pc::Process envManipProc("/usr/bin/env", pc::Args("env"));
+    envManipProc.set_env("VAR1", "value1");
+    envManipProc.set_env("VAR2", "value2");
+    envManipProc.unset_env("VAR1");
+    envManipProc.start();
+    std::string envOutput = envManipProc.read(pc::OUT);
+    report_test("Process环境变量管理",
+                envOutput.find("VAR2=value2") != std::string::npos &&
+                envOutput.find("VAR1=value1") == std::string::npos);
+
+    // 新增测试：流操作符的复杂使用
+    pc::Process grepProc("/bin/grep", pc::Args("grep").add("pattern"));
+    grepProc.start();
+    grepProc << "no pattern here" << std::endl;
+    grepProc << "this has pattern inside" << std::endl;
+    grepProc << "no match here either" << std::endl;
+    grepProc.close();
+    std::string grepOut = grepProc.getline();
+    report_test("Process复杂流操作", grepOut == "this has pattern inside");
+
+    // 新增测试：读取标准错误输出
+    pc::Process stderrProc("/bin/bash", pc::Args("bash").add("-c").add("echo 'standard output'; echo 'error output' >&2"));
+    stderrProc.start();
+    std::string stdOut = stderrProc.getline();
+    std::string stdErr = stderrProc.read(pc::ERR);
+    report_test("Process标准错误读取",
+                stdOut == "standard output" &&
+                stdErr.find("error output") != std::string::npos);
+
+    // 新增测试：取消超时
+    pc::Process cancelTimeoutProc("/bin/sleep", pc::Args("sleep").add("0.5"));
+    cancelTimeoutProc.set_timeout(1000);
+    cancelTimeoutProc.cancel_timeout();
+    cancelTimeoutProc.start();
+    JudgeCode cancelResult = cancelTimeoutProc.wait();
+    report_test("Process取消超时", cancelResult == JudgeCode::Waiting);
+
+    // 新增测试：取消内存限制
+    pc::Process cancelMemProc("/usr/bin/python3", pc::Args("python3").add("-c").add("import numpy as np; a = np.ones((1000, 1000))"));
+    cancelMemProc.set_memout(1);
+    cancelMemProc.cancel_memout();
+    cancelMemProc.start();
+    JudgeCode cancelMemResult = cancelMemProc.wait();
+    report_test("Process取消内存限制", cancelMemResult == JudgeCode::Waiting);
+
+    // 新增测试：清除所有环境变量
+    pc::Process clearEnvProc("/usr/bin/env", pc::Args("env"));
+    clearEnvProc.set_env("TEST_VAR1", "value1");
+    clearEnvProc.set_env("TEST_VAR2", "value2");
+    clearEnvProc.clear_env();
+    clearEnvProc.start();
+    std::string clearEnvOutput = clearEnvProc.read(pc::OUT);
+    report_test("Process清除环境变量",
+                clearEnvOutput.find("TEST_VAR1") == std::string::npos &&
+                clearEnvOutput.find("TEST_VAR2") == std::string::npos);
+
+    // 新增测试：获取环境变量
+    pc::Process getEnvProc("/bin/bash", pc::Args("bash"));
+    getEnvProc.set_env("CUSTOM_PATH", "/custom/path");
+    std::string envVal = getEnvProc.get_env("CUSTOM_PATH");
+    std::string sysEnv = getEnvProc.get_env("PATH"); // 获取系统环境变量
+    std::string nonExistEnv = getEnvProc.get_env("NON_EXISTENT_VAR");
+    report_test("Process获取环境变量",
+                envVal == "/custom/path" &&
+                !sysEnv.empty() &&
+                nonExistEnv.empty());
+
+    // 新增测试：阻塞与非阻塞模式切换
+    pc::Process blockProc("/bin/cat", pc::Args("cat"));
+    blockProc.start();
+    blockProc.set_block(false);
+    blockProc << "test blocking" << std::endl;
+    std::string blockOut = blockProc.getline();
+    blockProc.set_block(true);
+    blockProc << "test after switch" << std::endl;
+    std::string blockOut2 = blockProc.getline();
+    report_test("Process阻塞模式切换",
+                blockOut == "test blocking" &&
+                blockOut2 == "test after switch");
+
+    // 新增测试：进程退出码检测
+    pc::Process exitCodeProc("/bin/bash", pc::Args("bash").add("-c").add("exit 42"));
+    exitCodeProc.start();
+    exitCodeProc.wait();
+    report_test("Process退出码检测", exitCodeProc._exit_code != 0);
+
+    // 新增测试：运行时错误检测
+    pc::Process segfaultProc("/bin/bash", pc::Args("bash").add("-c").add("kill -SIGSEGV $$"));
+    segfaultProc.start();
+    JudgeCode segResult = segfaultProc.wait();
+    report_test("Process段错误检测", segResult == JudgeCode::RuntimeError);
+
+    // 新增测试：浮点错误检测
+    pc::Process fpeProc("/bin/bash", pc::Args("bash").add("-c").add("kill -SIGFPE $$"));
+    fpeProc.start();
+    JudgeCode fpeResult = fpeProc.wait();
+    report_test("Process浮点错误检测", fpeResult == JudgeCode::FloatingPointError);
+
+    std::cout << "Process类测试完成，共执行了 " << 29 << " 项测试" << std::endl;
 }
 
 // 测试KeyCircle类
