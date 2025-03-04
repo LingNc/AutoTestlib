@@ -5,6 +5,7 @@
 #include <vector>
 #include <iostream>
 #include <sstream>
+#include <map>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -60,6 +61,10 @@ namespace process{
 
     // 进程类
     class Process{
+        // 程序状态
+        enum Status{ RUNNING,STOP,ERROR };
+        // 当前进程状态
+        Status _status = STOP;
         // 管道
         int _stdin[2]={ -1,-1 };
         int _stdout[2]={ -1,-1 };
@@ -72,10 +77,14 @@ namespace process{
         string name="Process";
         // 缓冲区
         string _buffer[2];
+        // 环境变量存储
+        std::map<string,string> _env_vars;
         // 输出是否空
         bool _empty=true;
         // 是否是阻塞状态
         bool _blocked=true;
+        // 是否启用颜色
+        bool _enable_color=false;
         // 退出状态
         int exit_code=-1;
         // 缓冲区大小
@@ -93,7 +102,7 @@ namespace process{
         // 读字符
         char read_char(TypeOut OUT);
         // 读取一行
-        string read_line(TypeOut type,int timeout_ms=100);
+        string read_line(TypeOut type);
     public:
         // 构造函数
         Process();
@@ -120,7 +129,17 @@ namespace process{
         // 流是否为空
         bool empty();
         // 设置阻塞状态
-        void set_block(bool status);
+        void setBlock(bool status);
+        // 设置环境变量
+        Process &set_env(const std::string &name,const std::string &value);
+        // 获取环境变量
+        std::string get_env(const std::string &name) const;
+        // 清除特定环境变量
+        void unset_env(const std::string &name);
+        // 清除所有设置的环境变量
+        void clear_env();
+        // 检查进程是否在运行
+        bool is_running();
         // 重载运算符
         template<typename T>
         Process &operator<<(const T &data){

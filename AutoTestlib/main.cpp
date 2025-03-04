@@ -45,12 +45,19 @@ int main(){
     // 使用args2运行ls命令
     pc::Process proc("/bin/bash",args2);
     proc.start();
-    proc<<"ls -l"<<std::endl;
-    string output;
+    // proc<<"ls -l --color=always"<<std::endl;
+    string output,input;
     while(1){
-        output=proc.getline();
-        if(proc.empty()) break;
-        std::cout<<output<<std::endl;
+        std::getline(std::cin,input);
+        if(input=="exit") break;
+        proc<<input<<std::endl;
+        while(1){
+            output=proc.getline();
+            if(output!="") proc.setBlock(false);
+            // else proc.setBlock(true);
+            if(proc.empty()) break;
+            std::cout<<output<<std::endl;
+        }
     }
     return 0;
 }

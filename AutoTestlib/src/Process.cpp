@@ -2,6 +2,7 @@
 #include <sstream>
 #include <fcntl.h>
 #include <unistd.h>
+#include <errno.h>
 
 namespace pc=process;
 
@@ -162,6 +163,10 @@ void pc::Process::launch(const char arg[],char *args[]){
     _pid=fork();
     // 子进程
     if(_pid==0){
+        // 设置环境变量
+        for(const auto &[name,value]:_env_vars){
+            setenv(name.c_str(),value.c_str(),1);
+        }
         // 输入输出重定向
         dup2(_stdin[0],STDIN_FILENO);
         dup2(_stdout[1],STDOUT_FILENO);
@@ -175,8 +180,10 @@ void pc::Process::launch(const char arg[],char *args[]){
         exit(EXIT_FAILURE);
     }
     else if(_pid<0){
+        _status=ERROR;
         throw std::runtime_error(name+":子程序运行失败！");
     }
+    _status=RUNNING;
     close_pipe(0);
 }
 
@@ -227,6 +234,7 @@ void pc::Process::start(){
 int pc::Process::wait(){
     waitpid(_pid,&exit_code,0);
     _pid=-1;
+    _status=STOP;
     return WEXITSTATUS(exit_code);
 }
 
@@ -236,6 +244,7 @@ pc::Process &pc::Process::write(const string &data){
             throw std::runtime_error(name+":进程读取错误！");
         }
     }
+
     return *this;
 }
 
@@ -275,81 +284,70 @@ char pc::Process::read_char(TypeOut type){
     int stdpipe=(type==OUT)?_stdout[0]:_stderr[0];
     if(stdpipe==-1) return '\0';
 
+    // 设置非阻塞模式以避免无限等待
+    int flags;
+    if(!_blocked){
+        flags=fcntl(stdpipe,F_GETFL,0);
+        fcntl(stdpipe,F_SETFL,flags|O_NONBLOCK);
+    }
+
     char ch;
-    if(::read(stdpipe,&ch,1)>0) return ch;
+    int nbytes;
+    nbytes=::read(stdpipe,&ch,1);
+
+    // 恢复阻塞模式
+    if(!_blocked){
+        fcntl(stdpipe,F_SETFL,flags);
+    }
+
+    if(nbytes>0) return ch;
     else return 0;
 }
 
-string pc::Process::read_line(TypeOut type,int timeout_ms){
+string pc::Process::read_line(TypeOut type){
     // 获取合适的管道文件描述符
     int stdpipe=(type==OUT)?_stdout[0]:_stderr[0];
     if(stdpipe==-1) return "";
 
-    fd_set read_fds;      // 定义一个文件描述符集，用于select监控
-    struct timeval tv;    // 定义超时结构
-
-    FD_ZERO(&read_fds);           // 清空文件描述符集
-    FD_SET(stdpipe,&read_fds);   // 添加管道文件描述符到集合中
-
-    // 设置超时时间
-    tv.tv_sec=timeout_ms/1000;                // 秒部分
-    tv.tv_usec=(timeout_ms%1000)*1000;      // 微秒部分
+    // 设置非阻塞模式以避免无限等待
+    int flags;
+    if(!_blocked){
+        flags=fcntl(stdpipe,F_GETFL,0);
+        fcntl(stdpipe,F_SETFL,flags|O_NONBLOCK);
+    }
 
     string line;
     char c;
-
-    // 使用select检查是否有数据可读，带超时
-    if(select(stdpipe+1,&read_fds,NULL,NULL,&tv)>0){
-        // 有数据可读，开始读取一行数据
-        while(::read(stdpipe,&c,1)>0){
-            if(c=='\n') break;  // 遇到换行符结束
-            line+=c;             // 将字符添加到结果中
-
-            // 读完一个字符后，立即检查是否还有更多数据
-            FD_ZERO(&read_fds);
-            FD_SET(stdpipe,&read_fds);
-            tv.tv_sec=0;
-            tv.tv_usec=0;  // 立即返回，不等待
-
-            // 如果没有更多即时可读的数据，就退出
-            if(select(stdpipe+1,&read_fds,NULL,NULL,&tv)<=0){
-                break;
-            }
-        }
+    // 有数据可读，开始读取一行数据
+    while(::read(stdpipe,&c,1)>0){
+        // 遇到换行符结束
+        if(c=='\n') break;
+        // 将字符添加到结果中
+        line+=c;
     }
     _empty=(line=="")?true:false;
+
+
+    // 恢复阻塞模式
+    if(!_blocked){
+        fcntl(stdpipe,F_SETFL,flags);
+    }
     return line;
 }
 
 char pc::Process::getc(){
-    int stdpipe=_stdout[0];
-    fd_set read_fds;      // 定义一个文件描述符集，用于select监控
-    struct timeval tv;    // 定义超时结构
-
-    FD_ZERO(&read_fds);           // 清空文件描述符集
-    FD_SET(stdpipe,&read_fds);   // 添加管道文件描述符到集合中
-
-    // 设置超时时间
-    int timeout_ms=10;
-    tv.tv_sec=timeout_ms/1000;                // 秒部分
-    tv.tv_usec=(timeout_ms%1000)*1000;      // 微秒部分
-
-    char ch=0;
-    if(select(stdpipe+1,&read_fds,NULL,NULL,&tv)>0){
-        ch=read_char(OUT);
-    }
-    return ch;
+    return read_char(OUT);
 }
 
 string pc::Process::getline(){
-    return read_line(OUT,10);
+    return read_line(OUT);
 }
 
 bool pc::Process::empty(){
     return _empty;
 }
 
-void pc::Process::set_block(bool status){
+void pc::Process::setBlock(bool status){
     _blocked=status;
 }
 
@@ -373,9 +371,45 @@ bool pc::Process::kill(int signal){
             wait();
             // 关闭管道
             close();
+            _status=STOP;
         }
         return true;
     }
+    return false;
+}
+
+// 新增：检查进程是否在运行
+bool pc::Process::is_running(){
+    if(_pid<=0){
+        _status=STOP;
+        return false;
+    }
+
+    // 发送信号0检查进程是否存在
+    int result=::kill(_pid,0);
+
+    if(result==0){
+        // 进程存在
+        _status=RUNNING;
+        return true;
+    }
+    else{
+        // 检查错误类型
+        if(errno==ESRCH){
+            // 进程不存在
+            _pid=-1;
+            _status=STOP;
+            return false;
+        }
+        else if(errno==EPERM){
+            // 没有权限，但进程可能存在
+            _status=RUNNING;
+            return true;
+        }
+    }
+
+    // 其他错误情况
+    _status=ERROR;
     return false;
 }
 
@@ -392,8 +426,33 @@ pc::Process &pc::Process::flush(){
 }
 
 pc::Process::~Process(){
+    if(is_running()){
+        kill(SIGTERM);
+    }
     close();
     close_pipe(1);
     wait();
 }
 
+pc::Process &pc::Process::set_env(const std::string &name,const std::string &value){
+    _env_vars[name]=value;
+    return *this;
+}
+
+std::string pc::Process::get_env(const std::string &name) const{
+    auto it=_env_vars.find(name);
+    if(it!=_env_vars.end()){
+        return it->second;
+    }
+    // 尝试获取当前进程的环境变量
+    const char *val=getenv(name.c_str());
+    return val?val:"";
+}
+
+void pc::Process::unset_env(const std::string &name){
+    _env_vars.erase(name);
+}
+
+void pc::Process::clear_env(){
+    _env_vars.clear();
+}
