@@ -21,8 +21,10 @@ HEADERS = $(wildcard $(INCLUDE_DIR)/*.h)
 OBJS = $(patsubst %.cpp,$(BUILD_DIR)/%.o,$(SRCS))
 
 # 测试相关
-TEST_SRC = $(TEST_DIR)/test.cpp
-TEST_OBJS = $(BUILD_DIR)/test.o $(filter-out $(BUILD_DIR)/main.o, $(OBJS))
+TEST_MAIN = $(TEST_DIR)/main_test.cpp
+TEST_SRCS = $(filter-out $(TEST_DIR)/test.cpp, $(wildcard $(TEST_DIR)/*.cpp))
+TEST_OBJS = $(patsubst $(TEST_DIR)/%.cpp,$(BUILD_DIR)/$(TEST_DIR)/%.o,$(TEST_MAIN) $(TEST_SRCS))
+LIB_OBJS = $(filter-out $(BUILD_DIR)/main.o, $(OBJS))
 
 # 构建规则
 all: $(BUILD_DIR) $(TARGET)
@@ -34,7 +36,7 @@ $(BUILD_DIR)/%.o: %.cpp $(HEADERS)
 	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) -I$(INCLUDE_DIR) -c $< -o $@
 
-$(BUILD_DIR)/test.o: $(TEST_SRC) $(HEADERS)
+$(BUILD_DIR)/$(TEST_DIR)/%.o: $(TEST_DIR)/%.cpp $(HEADERS) $(TEST_DIR)/test_framework.h
 	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) -I$(INCLUDE_DIR) -c $< -o $@
 
@@ -42,6 +44,7 @@ $(BUILD_DIR)/test.o: $(TEST_SRC) $(HEADERS)
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 	mkdir -p $(BUILD_DIR)/$(SRC_DIR)
+	mkdir -p $(BUILD_DIR)/$(TEST_DIR)
 
 # 创建config目录
 config:
@@ -60,11 +63,25 @@ run: $(TARGET)
 $(TEST_DIR):
 	mkdir -p $(TEST_DIR)
 
-# 编译测试程序，确保输出到test目录
-$(TEST_TARGET): $(TEST_OBJS) $(TEST_DIR)
-	$(CXX) $(CXXFLAGS) -o $@ $(TEST_OBJS) $(OPENAI_LIBS)
+# 编译测试程序
+$(TEST_TARGET): $(TEST_DIR) $(LIB_OBJS) $(TEST_OBJS)
+	$(CXX) $(CXXFLAGS) -o $@ $(LIB_OBJS) $(TEST_OBJS) $(OPENAI_LIBS)
 
-# 测试目标
+# 测试目标 - 可以使用参数执行部分测试
 test: $(TEST_TARGET)
+	./$(TEST_TARGET) $(ARGS)
 
-.PHONY: all clean run config test
+# 运行特定测试
+test-args: $(TEST_TARGET)
+	./$(TEST_TARGET) args
+
+test-process: $(TEST_TARGET)
+	./$(TEST_TARGET) process
+
+test-keycircle: $(TEST_TARGET)
+	./$(TEST_TARGET) keycircle
+
+test-judgesign: $(TEST_TARGET)
+	./$(TEST_TARGET) judgesign
+
+.PHONY: all clean run config test test-args test-process test-keycircle test-judgesign

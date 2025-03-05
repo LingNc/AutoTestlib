@@ -4,93 +4,109 @@
 
 ## 测试概述
 
-AutoTestlib测试套件位于`test`目录下，主要测试文件是`test.cpp`。测试涵盖了库的核心组件：
+AutoTestlib测试套件位于`test`目录下，采用模块化的测试框架设计。测试涵盖了库的核心组件：
 
 - **Args类**: 命令行参数的解析与管理
 - **Process类**: 进程创建、控制和通信
 - **KeyCircle类**: API密钥的存储和管理
 - **JudgeSign**: 判题结果代码
 
+## 测试框架
+
+测试套件使用自定义的简单测试框架，分为以下组件：
+
+- **TestSuite**: 测试套件类，包含一组相关测试
+- **TestManager**: 测试管理器，协调多个测试套件的执行
+- **assert_xxx**: 断言宏，用于测试验证
+
+## 测试文件结构
+
+```
+test/
+├── main_test.cpp        # 测试入口文件
+├── test_framework.h     # 测试框架头文件
+├── test_args.cpp        # Args类测试
+├── test_process_basic.cpp    # Process类基础功能测试
+├── test_process_advanced.cpp # Process类高级功能测试
+├── test_process_complex.cpp  # Process类复杂场景测试
+├── test_keycircle.cpp   # KeyCircle类测试
+└── test_judgesign.cpp   # JudgeSign类测试
+```
+
 ## 测试细节
 
 ### Args类测试
-
-测试了Args类的以下功能：
-- 构造函数和add方法
-- bash构造方式
-- parse方法解析命令行
-- set_program_name方法
-- clear方法
-- 索引操作符
-- 向量构造
-- 添加多个参数
-- data()方法生成C风格参数
+- 构造函数和方法
+- 命令行解析
+- 引号和转义字符处理
+- 参数管理功能
 
 ### Process类测试
-
-测试了Process类的以下功能：
-- 基本执行功能
-- 非阻塞模式
-- 环境变量设置和管理
-- 输入输出流操作
-- 进程状态检测
-- 进程终止
-- 超时设置和取消
-- 字符读取
-- 管道输入/输出
-- 延迟加载
-- 内存限制和取消
-- 标准输出和错误读取
-- 阻塞模式切换
-- 退出码检测
-- 运行时错误检测
-- 浮点错误检测
+分为三个部分：
+1. **基础功能**：执行、环境变量、管道等
+2. **高级功能**：超时、内存限制、标准错误等
+3. **复杂场景**：与Args结合使用、嵌套命令、文件重定向等
 
 ### KeyCircle类测试
-
-测试了KeyCircle类的以下功能：
-- 不存在情况的处理
-- 保存和获取密钥
-- 文件读取密钥
-- 更新密钥
-- 文件内容验证
+- 文件存在性检查
+- 密钥保存与获取
+- 密钥更新
 
 ### JudgeSign测试
-
-测试了JudgeCode枚举的正确性，验证了各种判题结果代码：
-- Waiting
-- Accept
-- CompilationError
-- WrongAnswer
-- TimeLimitEXceeded
-- RuntimeError
+- 枚举值验证
 
 ## 运行测试
 
-编译并运行测试：
+编译并运行所有测试：
 
 ```bash
 # 在项目根目录执行
 make test
+```
 
-# 或者手动编译运行
-g++ -std=c++17 test/test.cpp -o test_autolib
-./test_autolib
+运行特定模块的测试：
+
+```bash
+# 只测试Args类
+make test-args
+
+# 只测试Process类
+make test-process
+
+# 只测试KeyCircle类
+make test-keycircle
+
+# 只测试JudgeSign类
+make test-judgesign
+```
+
+也可以在运行时指定测试模块：
+
+```bash
+make test ARGS=args
 ```
 
 ## 测试结果解读
 
-测试使用`report_test`函数报告结果：
-- ✓ 表示测试通过
-- ✗ 表示测试失败
+每个测试的结果将显示为：
+- ✓ [测试名称] 通过! (耗时)
+- ✗ [测试名称] 失败: 错误信息
 
-如果所有测试通过，程序将显示"所有测试通过!"并以退出码0结束。
-如果任何测试失败，程序将以非零退出码结束，并指示失败的测试。
+测试套件执行完毕后会显示套件摘要，所有套件执行完毕后会显示总结果。
 
 ## 添加新测试
 
-添加新测试时：
-1. 为新组件创建测试函数（如`test_new_component()`）
-2. 使用`report_test()`函数验证结果
-3. 在`main()`函数中调用新的测试函数
-4. 确保测试结束后清理所有临时资源
+1. 为新组件创建测试文件 `test_新组件.cpp`
+2. 在文件中定义 `create_新组件_tests()` 函数
+3. 在 `main_test.cpp` 中添加对应的 extern 声明和调用
+4. 可选：在 Makefile 中添加相应的测试目标
+
+## 配置
+
+测试框架不依赖外部库，使用标准C++17功能。确保编译环境支持C++17标准。
+
+## 常见问题
+
+- **测试失败但程序正常**：检查测试环境和预期条件
+- **找不到程序或命令**：确保测试中使用的所有命令在系统路径中可用
+- **内存测试不稳定**：内存限制测试可能依赖于系统状态，偶尔可能不稳定
