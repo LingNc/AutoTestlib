@@ -112,21 +112,21 @@ public:
     }
 };
 
-// 测试断言函数
-void assert_true(bool condition, const std::string& message = "断言失败") {
+// 测试断言函数 - 使用inline避免多重定义
+inline void assert_true(bool condition, const std::string& message = "断言失败") {
     if (!condition) {
         throw std::runtime_error(message);
     }
 }
 
-void assert_equal(const std::string& actual, const std::string& expected, const std::string& message = "值不相等") {
+inline void assert_equal(const std::string& actual, const std::string& expected, const std::string& message = "值不相等") {
     if (actual != expected) {
         throw std::runtime_error(message + "\n  期望: '" + expected + "'\n  实际: '" + actual + "'");
     }
 }
 
 template<typename T>
-void assert_equal(const T& actual, const T& expected, const std::string& message = "值不相等") {
+inline void assert_equal(const T& actual, const T& expected, const std::string& message = "值不相等") {
     if (actual != expected) {
         throw std::runtime_error(message);
     }
@@ -134,7 +134,7 @@ void assert_equal(const T& actual, const T& expected, const std::string& message
 
 // 添加枚举与整数比较的断言函数
 template<typename EnumType>
-void assert_equal_enum(EnumType actual, int expected, const std::string& message = "枚举值不相等") {
+inline void assert_equal_enum(EnumType actual, int expected, const std::string& message = "枚举值不相等") {
     if (static_cast<int>(actual) != expected) {
         throw std::runtime_error(message + "\n  期望: " + std::to_string(expected) +
                                 "\n  实际: " + std::to_string(static_cast<int>(actual)));

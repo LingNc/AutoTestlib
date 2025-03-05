@@ -22,8 +22,9 @@ OBJS = $(patsubst %.cpp,$(BUILD_DIR)/%.o,$(SRCS))
 
 # 测试相关
 TEST_MAIN = $(TEST_DIR)/main_test.cpp
-TEST_SRCS = $(filter-out $(TEST_DIR)/test.cpp, $(wildcard $(TEST_DIR)/*.cpp))
-TEST_OBJS = $(patsubst $(TEST_DIR)/%.cpp,$(BUILD_DIR)/$(TEST_DIR)/%.o,$(TEST_MAIN) $(TEST_SRCS))
+TEST_SRCS = $(filter-out main_test.cpp, $(notdir $(wildcard $(TEST_DIR)/*.cpp)))
+TEST_MAIN_OBJ = $(BUILD_DIR)/$(TEST_DIR)/main_test.o
+TEST_OBJS = $(patsubst %.cpp,$(BUILD_DIR)/$(TEST_DIR)/%.o,$(TEST_SRCS))
 LIB_OBJS = $(filter-out $(BUILD_DIR)/main.o, $(OBJS))
 
 # 构建规则
@@ -63,9 +64,9 @@ run: $(TARGET)
 $(TEST_DIR):
 	mkdir -p $(TEST_DIR)
 
-# 编译测试程序
-$(TEST_TARGET): $(TEST_DIR) $(LIB_OBJS) $(TEST_OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $(LIB_OBJS) $(TEST_OBJS) $(OPENAI_LIBS)
+# 编译测试程序 - 修正了这里防止main_test.o被重复链接
+$(TEST_TARGET): $(TEST_DIR) $(LIB_OBJS) $(TEST_MAIN_OBJ) $(TEST_OBJS)
+	$(CXX) $(CXXFLAGS) -o $@ $(LIB_OBJS) $(TEST_MAIN_OBJ) $(TEST_OBJS) $(OPENAI_LIBS)
 
 # 测试目标 - 可以使用参数执行部分测试
 test: $(TEST_TARGET)
