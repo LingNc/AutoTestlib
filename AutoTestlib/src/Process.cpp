@@ -91,8 +91,12 @@ pc::Args &pc::Args::parse(const string &command_line){
     string current_arg;
     bool escaped=false;
 
+    _args.clear(); // 清除旧的参数
+
     for(char c:command_line){
         if(escaped){
+            // 处理转义字符 - 把原始的反斜杠和字符都添加到参数中
+            current_arg+='\\';
             current_arg+=c;
             escaped=false;
             continue;
@@ -104,9 +108,11 @@ pc::Args &pc::Args::parse(const string &command_line){
                 escaped=true;
             }
             else if(c=='\''){
+                current_arg+=c;  // 将单引号添加到参数中
                 state=IN_QUOTE;
             }
             else if(c=='\"'){
+                current_arg+=c;  // 将双引号添加到参数中
                 state=IN_DQUOTE;
             }
             else if(std::isspace(c)){
@@ -121,23 +127,26 @@ pc::Args &pc::Args::parse(const string &command_line){
             break;
 
         case IN_QUOTE:
-            if(c=='\''){
-                state=NORMAL;
+            if(c=='\\'){
+                escaped=true;  // 允许在单引号内转义
             }
             else{
-                current_arg+=c;
+                current_arg+=c;  // 将所有字符添加到参数中，包括单引号
+                if(c=='\''&&!escaped){
+                    state=NORMAL;
+                }
             }
             break;
 
         case IN_DQUOTE:
             if(c=='\\'){
-                escaped=true;
-            }
-            else if(c=='\"'){
-                state=NORMAL;
+                escaped=true;  // 允许在双引号内转义
             }
             else{
-                current_arg+=c;
+                current_arg+=c;  // 将所有字符添加到参数中，包括双引号
+                if(c=='\"'&&!escaped){
+                    state=NORMAL;
+                }
             }
             break;
         }
