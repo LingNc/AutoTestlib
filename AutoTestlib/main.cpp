@@ -47,7 +47,7 @@ int main(){
     proc.start();
     // proc<<"ls -l --color=always"<<std::endl;
     string output,input;
-    proc.setBlock(false);
+    proc.set_block(false);
     while(1){
         std::getline(std::cin,input);
         if(input=="exit") break;
