@@ -335,6 +335,10 @@ JudgeCode pc::Process::wait(){
     }
 }
 
+int pc::Process::get_exit_code() const{
+    return _exit_code;
+}
+
 pc::Process &pc::Process::write(const string &data){
     if(_stdin[1]!=-1){
         if(::write(_stdin[1],data.c_str(),data.size())==-1){

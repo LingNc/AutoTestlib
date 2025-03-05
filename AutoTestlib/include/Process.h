@@ -133,6 +133,8 @@ namespace process{
         void start();
         // 等待子进程结束
         JudgeCode wait();
+        // 获得退出状态
+        int get_exit_code() const;
         // 读取数据
         string read(TypeOut type);
         // 写入数据

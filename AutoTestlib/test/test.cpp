@@ -282,7 +282,7 @@ void test_process() {
     pc::Process exitCodeProc("/bin/bash", pc::Args("bash").add("-c").add("exit 42"));
     exitCodeProc.start();
     exitCodeProc.wait();
-    report_test("Process退出码检测", exitCodeProc._exit_code != 0);
+    report_test("Process退出码检测", exitCodeProc.get_exit_code() != 0);
 
     // 新增测试：运行时错误检测
     pc::Process segfaultProc("/bin/bash", pc::Args("bash").add("-c").add("kill -SIGSEGV $$"));
