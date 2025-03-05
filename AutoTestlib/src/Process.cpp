@@ -201,12 +201,14 @@ pc::Process &pc::Process::cancel_timeout(){
     return *this;
 }
 
-bool pc::Process::set_memout(int memout_mb){
+pc::Process& pc::Process::set_memout(int memout_mb){
     _memsize=memout_mb;
+    return *this;
 }
 
-bool pc::Process::cancel_memout(){
+pc::Process& pc::Process::cancel_memout(){
     _memsize=0;
+    return *this;
 }
 
 void pc::Process::init_pipe(){

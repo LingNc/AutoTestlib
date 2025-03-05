@@ -170,9 +170,9 @@ namespace process{
         Process &cancel_timeout();
 
         // 设置内存限制
-        bool set_memout(int memout_mb);
+        Process& set_memout(int memout_mb);
         // 取消内存限制
-        bool cancel_memout();
+        Process&cancel_memout();
 
         // 重载运算符
         template<typename T>

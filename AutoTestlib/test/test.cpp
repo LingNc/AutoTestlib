@@ -38,8 +38,24 @@ void test_args() {
     // 测试方式3：使用parse方法
     pc::Args args3;
     args3.parse("find . -name \"*.cpp\" -type f");
-    report_test("Args parse方法", args3.get_program_name() == "find" && args3.size() == 5);
+    report_test("Args parse方法", args3.get_program_name() == "find" && args3.size() == 6);
     report_test("Args parse内容正确", args3[1] == "." && args3[2] == "-name" && args3[3] == "\"*.cpp\"" && args3[4] == "-type" && args3[5] == "f");
+
+    // 添加更多转义字符测试
+    pc::Args args3b;
+    args3b.parse("echo \"quoted \\\"string\\\"\" '单引号\\'内容' file\\ with\\ space");
+    report_test("Args parse转义字符1", args3b[0] == "echo");
+    report_test("Args parse转义字符2", args3b[1] == "\"quoted \\\"string\\\"\"");
+    report_test("Args parse转义字符3", args3b[2] == "'单引号\\'内容'");
+    report_test("Args parse转义字符4",args3b[3]=="file\\ with\\ space");
+
+    // 测试常见命令行格式
+    pc::Args args3c;
+    args3c.parse("bash -c \"echo hello\"");
+    report_test("Args parse命令行格式",
+                args3c[0] == "bash" &&
+                args3c[1] == "-c" &&
+                args3c[2] == "\"echo hello\"");
 
     // 测试set_program_name方法
     pc::Args args4;
@@ -296,7 +312,70 @@ void test_process() {
     JudgeCode fpeResult = fpeProc.wait();
     report_test("Process浮点错误检测", fpeResult == JudgeCode::FloatingPointError);
 
-    std::cout << "Process类测试完成，共执行了 " << 29 << " 项测试" << std::endl;
+    // 新增测试：Process类与Args类的复杂结合
+    std::cout << "\n--- Process与Args复杂交互测试 ---" << std::endl;
+
+    // 测试1：使用Args.parse构建带转义字符的命令行
+    pc::Args complexArgs;
+    complexArgs.parse("bash -c \"echo \\\"Hello, World!\\\"\"");
+    pc::Process complexProc("/bin/bash", complexArgs);
+    complexProc.start();
+    std::string complexOutput = complexProc.getline();
+    report_test("Process与Args结合-转义引号", complexOutput == "Hello, World!");
+
+    // 测试2：从shell执行包含特殊字符的命令
+    pc::Args shellArgs;
+    shellArgs.parse("bash -c \"echo 'Path: /usr/bin with\\ space'\"");
+    pc::Process shellProc("/bin/bash", shellArgs);
+    shellProc.start();
+    std::string shellOutput = shellProc.getline();
+    report_test("Process与Args结合-shell特殊字符", shellOutput == "Path: /usr/bin with space");
+
+    // 测试3：多层嵌套命令
+    pc::Args nestedArgs;
+    nestedArgs.parse("bash -c \"bash -c \\\"echo nested command\\\"\"");
+    pc::Process nestedProc("/bin/bash", nestedArgs);
+    nestedProc.start();
+    std::string nestedOutput = nestedProc.getline();
+    report_test("Process与Args结合-嵌套命令", nestedOutput == "nested command");
+
+    // 测试4：使用Args构建复杂的grep命令
+    pc::Args grepComplexArgs("grep");
+    grepComplexArgs.add("-E").add("\"pattern.*test\"");
+    pc::Process grepComplexProc("/bin/grep", grepComplexArgs);
+    grepComplexProc.start();
+    grepComplexProc << "no match here" << std::endl;
+    grepComplexProc << "\"pattern test\"" << std::endl;  // 带引号的内容
+    grepComplexProc << "pattern advanced test" << std::endl;
+    grepComplexProc.close();
+    std::string grepComplexOut1 = grepComplexProc.getline();
+    std::string grepComplexOut2 = grepComplexProc.getline();
+    report_test("Process与Args结合-复杂grep",
+                grepComplexOut1 == "\"pattern test\"" &&
+                grepComplexOut2 == "pattern advanced test");
+
+    // 测试5：生成多层转义的动态命令并执行
+    std::string dynamicCmd = "echo 'Dynamic: \\\"quoted\\\" content'";
+    pc::Args dynamicArgs;
+    dynamicArgs.parse("bash -c \"" + dynamicCmd + "\"");
+    pc::Process dynamicProc("/bin/bash", dynamicArgs);
+    dynamicProc.start();
+    std::string dynamicOutput = dynamicProc.getline();
+    report_test("Process与Args结合-动态命令", dynamicOutput == "Dynamic: \"quoted\" content");
+
+    // 测试6：使用文件重定向
+    pc::Args redirectArgs;
+    // 创建临时文件并写入内容
+    system("echo 'redirect test' > /tmp/test_redirect.txt");
+    redirectArgs.parse("bash -c \"cat < /tmp/test_redirect.txt\"");
+    pc::Process redirectProc("/bin/bash", redirectArgs);
+    redirectProc.start();
+    std::string redirectOutput = redirectProc.getline();
+    report_test("Process与Args结合-文件重定向", redirectOutput == "redirect test");
+    // 清理临时文件
+    system("rm -f /tmp/test_redirect.txt");
+
+    std::cout << "Process类测试完成，共执行了 " << 35 << " 项测试" << std::endl;
 }
 
 // 测试KeyCircle类
