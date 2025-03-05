@@ -4,7 +4,7 @@ CXXFLAGS = -std=c++17 -Wall -Wextra -g -D_GLIBCXX_DEBUG
 
 # 目标可执行文件
 TARGET = main
-TEST_TARGET = run_tests
+TEST_TARGET = test/test
 
 # OpenAI库依赖
 OPENAI_LIBS = -lcurl -pthread
@@ -56,12 +56,15 @@ clean:
 run: $(TARGET)
 	./$(TARGET)
 
-# 编译测试程序
-$(TEST_TARGET): $(TEST_OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $^ $(OPENAI_LIBS)
+# 确保test目录存在
+$(TEST_DIR):
+	mkdir -p $(TEST_DIR)
+
+# 编译测试程序，确保输出到test目录
+$(TEST_TARGET): $(TEST_OBJS) $(TEST_DIR)
+	$(CXX) $(CXXFLAGS) -o $@ $(TEST_OBJS) $(OPENAI_LIBS)
 
 # 测试目标
 test: $(TEST_TARGET)
-	./$(TEST_TARGET)
 
 .PHONY: all clean run config test
