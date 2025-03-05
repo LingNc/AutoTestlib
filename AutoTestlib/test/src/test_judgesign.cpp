@@ -1,5 +1,5 @@
 #include "test_framework.h"
-#include "../include/JudgeSign.h"
+#include "JudgeSign.h"
 #include <iostream>
 
 TestSuite create_judgesign_tests() {

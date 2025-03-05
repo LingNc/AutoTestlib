@@ -1,88 +1,150 @@
 # 编译器设置
-CXX = g++
-CXXFLAGS = -std=c++17 -Wall -Wextra -g -D_GLIBCXX_DEBUG
-
-# 目标可执行文件
-TARGET = main
-TEST_TARGET = test/test
+Cpp = g++
+Cpp_flags = -std=c++17 -Wall -Wextra -g -D_GLIBCXX_DEBUG
 
 # OpenAI库依赖
-OPENAI_LIBS = -lcurl -pthread
+Openai_libs = -lcurl -pthread
 
-# 源文件和目录
-SRC_DIR = src
-INCLUDE_DIR = include
-BUILD_DIR = build
-TEST_DIR = test
+# 头文件路径
+Include = -Iinclude -Itest/include
 
-# 自动收集所有源文件和头文件
-SRCS = main.cpp $(wildcard $(SRC_DIR)/*.cpp)
-HEADERS = $(wildcard $(INCLUDE_DIR)/*.h)
-OBJS = $(patsubst %.cpp,$(BUILD_DIR)/%.o,$(SRCS))
+# build文件夹
+Object_dir = build
+Main_base_dir = $(Object_dir)
+Test_base_dir = $(Object_dir)/test
 
-# 测试相关
-TEST_MAIN = $(TEST_DIR)/main_test.cpp
-TEST_SRCS = $(filter-out main_test.cpp, $(notdir $(wildcard $(TEST_DIR)/*.cpp)))
-TEST_MAIN_OBJ = $(BUILD_DIR)/$(TEST_DIR)/main_test.o
-TEST_OBJS = $(patsubst %.cpp,$(BUILD_DIR)/$(TEST_DIR)/%.o,$(TEST_SRCS))
-LIB_OBJS = $(filter-out $(BUILD_DIR)/main.o, $(OBJS))
+# # 创建必要的目录
+# $(shell mkdir -p $(Main_base_dir) $(Test_base_dir))
 
-# 构建规则
-all: $(BUILD_DIR) $(TARGET)
+# ===主程序===
+Main = main
+Main_src = main.cpp
+Main_src_dir = src
+Main_obj_dir = $(Main_base_dir)/src
 
-$(TARGET): $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $^ $(OPENAI_LIBS)
+# 收集文件
+Main_src_files = $(wildcard $(Main_src_dir)/*.cpp)
+Main_obj_files = $(patsubst $(Main_src_dir)/%.cpp,$(Main_obj_dir)/%.o,$(Main_src_files))
 
-$(BUILD_DIR)/%.o: %.cpp $(HEADERS)
-	@mkdir -p $(@D)
-	$(CXX) $(CXXFLAGS) -I$(INCLUDE_DIR) -c $< -o $@
+# 构建主程序
+.PHONY: all
+all: $(Main)
+	@echo "构建 $(Main) 成功!"
 
-$(BUILD_DIR)/$(TEST_DIR)/%.o: $(TEST_DIR)/%.cpp $(HEADERS) $(TEST_DIR)/test_framework.h
-	@mkdir -p $(@D)
-	$(CXX) $(CXXFLAGS) -I$(INCLUDE_DIR) -c $< -o $@
+# 链接主文件
+$(Main): $(Main_obj_files) $(Main_base_dir)/main.o
+	@echo "正在链接 $(Main)..."
+	$(Cpp) $(Cpp_flags) $(Include) $^ -o $@ $(Openai_libs)
 
-# 创建目录
-$(BUILD_DIR):
-	mkdir -p $(BUILD_DIR)
-	mkdir -p $(BUILD_DIR)/$(SRC_DIR)
-	mkdir -p $(BUILD_DIR)/$(TEST_DIR)
+# 编译中间产物
+$(Main_obj_dir)/%.o: $(Main_src_dir)/%.cpp
+	@echo "正在编译 $<..."
+	@mkdir -p $(dir $@)
+	$(Cpp) $(Cpp_flags) $(Include) -c $< -o $@
 
-# 创建config目录
-config:
-	mkdir -p config
+# 编译入口
+$(Main_base_dir)/main.o: $(Main_src)
+	@echo "正在编译 $<..."
+	@mkdir -p $(dir $@)
+	$(Cpp) $(Cpp_flags) $(Include) -c $< -o $@
 
-# 清理规则
+# ===测试程序===
+Test = test/test
+Test_src = test/test.cpp
+Test_src_dir = test/src
+Test_obj_dir = $(Test_base_dir)/src
+
+# 收集文件
+Test_src_files = $(wildcard $(Test_src_dir)/*.cpp)
+Test_obj_files = $(patsubst $(Test_src_dir)/%.cpp,$(Test_obj_dir)/%.o,$(Test_src_files))
+
+# 构建测试程序
+.PHONY: test
+test: $(Test)
+	@echo "构建 $(Test) 成功!"
+
+# 链接测试文件
+$(Test): $(Main_obj_files) $(Test_obj_files) $(Test_base_dir)/test.o
+	@echo "正在链接 $(Test)..."
+	$(Cpp) $(Cpp_flags) $(Include) $^ -o $@ $(Openai_libs)
+
+# 编译中间产物
+$(Test_obj_dir)/%.o: $(Test_src_dir)/%.cpp
+	@echo "正在编译 $<..."
+	@mkdir -p $(dir $@)
+	$(Cpp) $(Cpp_flags) $(Include) -c $< -o $@
+
+# 编译入口
+$(Test_base_dir)/test.o: $(Test_src)
+	@echo "正在编译 $<..."
+	@mkdir -p $(dir $@)
+	$(Cpp) $(Cpp_flags) $(Include) -c $< -o $@
+
+# ===清理===
+.PHONY: clean
 clean:
-	rm -f $(TARGET) $(TEST_TARGET)
-	rm -rf $(BUILD_DIR)
+	@echo "正在清理所有..."
+	@rm -rf $(Object_dir) $(Main) $(Test)
+	@echo "清理完成!"
 
-# 运行程序
-run: $(TARGET)
-	./$(TARGET)
+# 清理主程序
+.PHONY: clean-main
+clean-main:
+	@echo "正在清理 $(Main)..."
+	@rm -rf $(Main_base_dir)/src $(Main_base_dir)/main.o $(Main)
+	@echo "清理完成 $(Main)!"
 
-# 确保test目录存在
-$(TEST_DIR):
-	mkdir -p $(TEST_DIR)
+# 清理测试程序
+.PHONY: clean-test
+clean-test:
+	@echo "正在清理 $(Test)..."
+	@rm -rf $(Test_base_dir) $(Test) $(Main_obj_files)
+	@echo "清理完成 $(Test)!"
 
-# 编译测试程序 - 修正了这里防止main_test.o被重复链接
-$(TEST_TARGET): $(TEST_DIR) $(LIB_OBJS) $(TEST_MAIN_OBJ) $(TEST_OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $(LIB_OBJS) $(TEST_MAIN_OBJ) $(TEST_OBJS) $(OPENAI_LIBS)
+# ===运行===
+# 运行主程序
+.PHONY: run
+run: all
+	@echo "正在运行 $(Main)..."
+	./$(Main)
+	@echo "运行完成 $(Main)!"
 
-# 测试目标 - 可以使用参数执行部分测试
-test: $(TEST_TARGET)
-	./$(TEST_TARGET) $(ARGS)
+# 运行测试
+.PHONY: run-test
+run-test: test
+	@echo "正在运行 $(Test)..."
+	./$(Test)
+	@echo "运行完成 $(Test)!"
 
-# 运行特定测试
-test-args: $(TEST_TARGET)
-	./$(TEST_TARGET) args
+# 运行测试并生成覆盖率报告
+.PHONY: run-test-coverage
+run-test-coverage: test
+	@echo "正在运行 $(Test)..."
+	./$(Test)
+	@echo "运行完成 $(Test)!"
+	@echo "正在生成覆盖率报告..."
+	gcov -o $(Object_dir) $(Test_obj_dir)/*.o
+	@echo "生成覆盖率报告完成!"
 
-test-process: $(TEST_TARGET)
-	./$(TEST_TARGET) process
+# 运行测试并生成内存泄漏报告
+.PHONY: run-test-valgrind
+run-test-valgrind: test
+	@echo "正在运行 $(Test)..."
+	valgrind --leak-check=full --show-leak-kinds=all ./$(Test)
+	@echo "运行完成 $(Test)!"
 
-test-keycircle: $(TEST_TARGET)
-	./$(TEST_TARGET) keycircle
-
-test-judgesign: $(TEST_TARGET)
-	./$(TEST_TARGET) judgesign
-
-.PHONY: all clean run config test test-args test-process test-keycircle test-judgesign
+# ===帮助===
+.PHONY: help
+help:
+	@echo "可用命令:"
+	@echo "  make                   构建主程序"
+	@echo "  make all               构建主程序"
+	@echo "  make test              构建测试程序"
+	@echo "  make clean             清理所有"
+	@echo "  make clean-main        清理主程序"
+	@echo "  make clean-test        清理测试程序"
+	@echo "  make run               运行主程序"
+	@echo "  make run-test          运行测试程序"
+	@echo "  make run-test-coverage 运行测试并生成覆盖率报告"
+	@echo "  make run-test-valgrind 运行测试并生成内存泄漏报告"
+	@echo "  make help              显示帮助信息"

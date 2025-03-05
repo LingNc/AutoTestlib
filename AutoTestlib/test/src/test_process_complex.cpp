@@ -1,5 +1,5 @@
 #include "test_framework.h"
-#include "../include/Process.h"
+#include "Process.h"
 #include <iostream>
 #include <fstream>
 #include <cstdlib>

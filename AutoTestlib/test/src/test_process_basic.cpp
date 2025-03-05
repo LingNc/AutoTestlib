@@ -1,6 +1,6 @@
 #include "test_framework.h"
-#include "../include/Process.h"
-#include "../include/JudgeSign.h"
+#include "Process.h"
+#include "JudgeSign.h"
 #include <iostream>
 #include <chrono>
 

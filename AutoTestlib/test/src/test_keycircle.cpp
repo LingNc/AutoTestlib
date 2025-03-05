@@ -1,5 +1,5 @@
 #include "test_framework.h"
-#include "../include/KeyCircle.h"
+#include "KeyCircle.h"
 #include <iostream>
 #include <fstream>
 #include <filesystem>

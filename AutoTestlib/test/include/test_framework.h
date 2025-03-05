@@ -61,6 +61,16 @@ public:
         std::cout << "\n套件总结: " << passed << " 通过, " << failed << " 失败" << std::endl;
         return failed == 0;
     }
+
+    // 获取通过的测试数量
+    int get_passed_count() const {
+        return passed;
+    }
+
+    // 获取失败的测试数量
+    int get_failed_count() const {
+        return failed;
+    }
 };
 
 // 全局测试管理器
@@ -90,6 +100,9 @@ public:
         bool all_passed = true;
         for (auto& suite : suites) {
             bool suite_passed = suite.run_all();
+            // 累加当前套件的通过和失败数量
+            total_passed += suite.get_passed_count();
+            total_failed += suite.get_failed_count();
             if (!suite_passed) {
                 all_passed = false;
             }
@@ -99,6 +112,7 @@ public:
         auto duration = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time).count();
 
         std::cout << "\n========================================" << std::endl;
+        std::cout << "总结: " << total_passed << " 通过, " << total_failed << " 失败" << std::endl;
         if (all_passed) {
             std::cout << "✓ 所有测试通过! (耗时: " << duration << "秒)" << std::endl;
         } else {
