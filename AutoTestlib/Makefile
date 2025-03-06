@@ -5,16 +5,20 @@ Cpp_flags = -std=c++17 -Wall -Wextra -g -D_GLIBCXX_DEBUG
 # OpenAI库依赖
 Openai_libs = -lcurl -pthread
 
-# 头文件路径
-Include = -Iinclude -Itest/include
-
 # build文件夹
 Object_dir = build
 Main_base_dir = $(Object_dir)
 Test_base_dir = $(Object_dir)/test
 
-# # 创建必要的目录
-# $(shell mkdir -p $(Main_base_dir) $(Test_base_dir))
+# ===头文件===
+Include_dirs = include
+Include_test_dirs = test/include
+Include_obj_dir = $(Object_dir)/include
+Include_test_obj_dir = $(Object_dir)/test/include
+
+# 收集文件
+Include_files = $(wildcard $(Include_dirs)/*.h)
+Include_test_files = $(wildcard $(Include_test_dirs)/*.h)
 
 # ===主程序===
 Main = main
@@ -34,19 +38,19 @@ all: $(Main)
 # 链接主文件
 $(Main): $(Main_obj_files) $(Main_base_dir)/main.o
 	@echo "正在链接 $(Main)..."
-	$(Cpp) $(Cpp_flags) $(Include) $^ -o $@ $(Openai_libs)
+	$(Cpp) $(Cpp_flags) -I$(Include_dirs) $^ -o $@ $(Openai_libs)
 
-# 编译中间产物
-$(Main_obj_dir)/%.o: $(Main_src_dir)/%.cpp
+# 编译中间产物 - 添加头文件
+$(Main_obj_dir)/%.o: $(Main_src_dir)/%.cpp $(Include_files)
 	@echo "正在编译 $<..."
 	@mkdir -p $(dir $@)
-	$(Cpp) $(Cpp_flags) $(Include) -c $< -o $@
+	$(Cpp) $(Cpp_flags) -I$(Include_dirs) -c $< -o $@
 
-# 编译入口
-$(Main_base_dir)/main.o: $(Main_src)
+# 编译入口 - 添加头文件
+$(Main_base_dir)/main.o: $(Main_src) $(Include_files)
 	@echo "正在编译 $<..."
 	@mkdir -p $(dir $@)
-	$(Cpp) $(Cpp_flags) $(Include) -c $< -o $@
+	$(Cpp) $(Cpp_flags) -I$(Include_dirs) -c $< -o $@
 
 # ===测试程序===
 Test = test/test
@@ -66,19 +70,19 @@ test: $(Test)
 # 链接测试文件
 $(Test): $(Main_obj_files) $(Test_obj_files) $(Test_base_dir)/test.o
 	@echo "正在链接 $(Test)..."
-	$(Cpp) $(Cpp_flags) $(Include) $^ -o $@ $(Openai_libs)
+	$(Cpp) $(Cpp_flags) -I$(Include_dirs) $^ -o $@ $(Openai_libs)
 
-# 编译中间产物
-$(Test_obj_dir)/%.o: $(Test_src_dir)/%.cpp
+# 编译中间产物 - 添加头文件
+$(Test_obj_dir)/%.o: $(Test_src_dir)/%.cpp $(Include_test_files) $(Include_files)
 	@echo "正在编译 $<..."
 	@mkdir -p $(dir $@)
-	$(Cpp) $(Cpp_flags) $(Include) -c $< -o $@
+	$(Cpp) $(Cpp_flags) -I$(Include_dirs) -I$(Include_test_dirs) -c $< -o $@
 
-# 编译入口
-$(Test_base_dir)/test.o: $(Test_src)
+# 编译入口 - 添加头文件
+$(Test_base_dir)/test.o: $(Test_src) $(Include_test_files) $(Include_files)
 	@echo "正在编译 $<..."
 	@mkdir -p $(dir $@)
-	$(Cpp) $(Cpp_flags) $(Include) -c $< -o $@
+	$(Cpp) $(Cpp_flags) -I$(Include_dirs) -I$(Include_test_dirs) -c $< -o $@
 
 # ===清理===
 .PHONY: clean

@@ -80,6 +80,12 @@ namespace process{
     // 输出管道选择
     enum TypeOut{ OUT,ERR };
     class Process{
+        // 计时器
+        Timer _timer;
+        // 参数
+        Args _args;
+        // 系统接口
+        System _sys;
         // 当前进程状态
         Status _status=STOP;
         // 管道
@@ -88,22 +94,17 @@ namespace process{
         int _stderr[2]={ -1,-1 };
         // pid
         pid_t _pid=-1;
-        // 路径和参数
+        // 路径
         string _path;
-        Args _args;
         string name="Process";
         // 缓冲区
         string _buffer[2];
         // 环境变量存储
         std::map<string,string> _env_vars;
-        // 计时器
-        Timer _timer;
         // 内存限制
         int _memsize=0;
         // 输出是否空
         bool _empty=true;
-        // 是否是阻塞状态
-        bool _blocked=true;
         // 是否启用颜色
         bool _enable_color=false;
         // 退出状态
@@ -170,9 +171,9 @@ namespace process{
         Process &cancel_timeout();
 
         // 设置内存限制
-        Process& set_memout(int memout_mb);
+        Process &set_memout(int memout_mb);
         // 取消内存限制
-        Process&cancel_memout();
+        Process &cancel_memout();
 
         // 重载运算符
         template<typename T>
