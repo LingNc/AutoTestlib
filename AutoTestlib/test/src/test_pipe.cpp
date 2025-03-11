@@ -2,6 +2,7 @@
 #include "Pipe.h"
 #include <iostream>
 #include <thread>
+#include <cstring>
 #include <chrono>
 
 namespace pc = process;
