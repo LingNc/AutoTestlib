@@ -19,6 +19,18 @@ TestSuite create_process_basic_tests() {
         assert_equal(output, std::string("测试成功"));
     });
 
+    // 测试简单命令执行
+    suite.add_test("简单命令执行", []() {
+        pc::Args args("echo");
+        args.add("Hello World");
+        pc::Process proc("/bin/echo", args);
+        proc.start();
+        std::string output = proc.read(pc::OUT);
+        proc.wait();
+        assert_equal(output, std::string("Hello World\n"));
+        assert_equal(proc.get_exit_code(), 0);
+    });
+
     // 测试非阻塞模式
     suite.add_test("非阻塞模式", []() {
         pc::Process lsProc("/bin/ls", pc::Args("ls"));
@@ -58,6 +70,28 @@ TestSuite create_process_basic_tests() {
         assert_equal(echoedOutput, testString);
     });
 
+    // 创建一个简单的 cat 进程测试输入输出
+    suite.add_test("cat 进程测试输入输出", []() {
+        pc::Args cat_args("cat");
+        pc::Process cat("/bin/cat", cat_args);
+        cat.start();
+
+        // 向进程写入数据
+        cat.write("Hello from test\n");
+        cat.write("Another line\n");
+
+        // 读取输出
+        std::string line1 = cat.getline();
+        std::string line2 = cat.getline();
+
+        // 关闭输入并等待进程结束
+        cat.kill(SIGTERM);
+        cat.wait();
+
+        assert_equal(line1, std::string("Hello from test"));
+        assert_equal(line2, std::string("Another line"));
+        });
+
     // 测试进程状态
     suite.add_test("运行状态检测", []() {
         pc::Process sleepProc("/bin/sleep", pc::Args("sleep").add("0.1"));
@@ -89,5 +123,19 @@ TestSuite create_process_basic_tests() {
         assert_equal(result, JudgeCode::TimeLimitEXceeded);
     });
 
+    // 测试超时导致的进程终止
+    suite.add_test("超时终止进程", []() {
+        // 创建一个会永久运行的进程
+        pc::Args sleep_args("sleep");
+        sleep_args.add("10");
+        pc::Process sleep_proc("/bin/sleep", sleep_args);
+        // 设置1秒超时
+        sleep_proc.set_timeout(1000);
+        sleep_proc.start();
+        // 等待进程结束
+        JudgeCode result = sleep_proc.wait();
+        // 检查是否因为超时而终止
+        assert_equal(result, JudgeCode::TimeLimitEXceeded);
+    });
     return suite;
 }

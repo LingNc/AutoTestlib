@@ -9,6 +9,7 @@ extern TestSuite create_process_advanced_tests();
 extern TestSuite create_process_complex_tests();
 extern TestSuite create_keycircle_tests();
 extern TestSuite create_judgesign_tests();
+extern TestSuite create_pipe_tests();  // 添加Pipe测试套件
 
 int main(int argc, char** argv) {
     std::cout << "==================================" << std::endl;
@@ -24,6 +25,7 @@ int main(int argc, char** argv) {
     bool run_process = run_all || (std::string(argv[1]) == "process");
     bool run_keycircle = run_all || (std::string(argv[1]) == "keycircle");
     bool run_judgesign = run_all || (std::string(argv[1]) == "judgesign");
+    bool run_pipe = run_all || (std::string(argv[1]) == "pipe");  // 添加pipe参数支持
 
     // 添加要运行的测试套件
     if (run_args) {
@@ -42,6 +44,10 @@ int main(int argc, char** argv) {
 
     if (run_judgesign) {
         manager.add_suite(create_judgesign_tests());
+    }
+
+    if (run_pipe) {
+        manager.add_suite(create_pipe_tests());  // 添加Pipe测试套件
     }
 
     // 运行所有测试
