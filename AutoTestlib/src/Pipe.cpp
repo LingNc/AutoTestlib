@@ -76,7 +76,7 @@ namespace process{
     // 是否为空
     bool Pipe::empty(int timeout_ms){
         if(_pipe[_type]==-1){
-            return false;
+            return true; // 管道未打开，认为是空的
         }
 
         struct pollfd pfd;
@@ -89,7 +89,8 @@ namespace process{
             throw std::runtime_error("Failed to poll pipe: "+std::string(strerror(errno)));
         }
 
-        return (ret>0&&(pfd.revents&POLLIN));
+        // 修正：ret > 0 且 pfd.revents & POLLIN 表示有数据可读，因此不为空
+        return !(ret > 0 && (pfd.revents & POLLIN));
     }
     // 管道是否关闭
     bool Pipe::is_closed(){

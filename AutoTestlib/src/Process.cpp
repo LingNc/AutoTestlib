@@ -239,13 +239,15 @@ namespace process{
                 }
             }
 
-            // 输入输出重定向
-            dup2(_stdin[0],STDIN_FILENO);
-            dup2(_stdout[1],STDOUT_FILENO);
-            dup2(_stderr[1],STDERR_FILENO);
+            // 设置管道
+            _stdin.set_type(PIPE_READ);
+            _stdout.set_type(PIPE_WRITE);
+            _stderr.set_type(PIPE_WRITE);
 
-            // 关闭管道
-            close_pipe(1);
+            // 输入输出重定向
+            _stdin.redirect(STDIN_FILENO);
+            _stdout.redirect(STDOUT_FILENO);
+            _stderr.redirect(STDERR_FILENO);
 
             // 运行子程序
             execvp(arg,args);
@@ -256,15 +258,10 @@ namespace process{
             throw std::runtime_error(name+":子程序运行失败！");
         }
         _status=RUNNING;
-        close_pipe(0);
+        _stdin.set_type(PIPE_WRITE);
+        _stdout.set_type(PIPE_READ);
+        _stderr.set_type(PIPE_READ);
     }
-
-    // 修改save_args方法使用Args类
-    void Process::save_args(std::vector<string> &args){
-        _args.clear(); // 清除旧的参数
-        _args.add(args);
-    }
-
     Process::Process(){}
 
     Process::Process(const string &path,const Args &args): _args(args){
@@ -338,57 +335,37 @@ namespace process{
             throw std::runtime_error(name + ":进程写入错误！");
         }
 
-        // 使用管道的write方法写入数据
+        // 使用Pipe类的write方法直接写入字符串数据
         _stdin.write(data);
         return *this;
     }
 
     string Process::read(TypeOut type){
-        Pipe& stdpipe = (type == OUT) ? _stdout : _stderr;
-        if(stdpipe.is_closed()){
-            return "";
-        }
-
-        // 使用管道的read_all方法获取所有可用数据
-        return stdpipe.read_all();
+        Pipe& pipe = (type == OUT) ? _stdout : _stderr;
+        // 利用Pipe类的read_all方法获取所有可用数据
+        return pipe.read_all();
     }
 
     char Process::read_char(TypeOut type){
-        Pipe& stdpipe = (type == OUT) ? _stdout : _stderr;
-        if(stdpipe.is_closed()){
-            return '\0';
-        }
-
-        // 使用管道的read_char方法获取一个字符
-        return stdpipe.read_char();
+        Pipe& pipe = (type == OUT) ? _stdout : _stderr;
+        // 利用Pipe类的read_char方法
+        return pipe.read_char();
     }
 
     string Process::read_line(TypeOut type){
-        Pipe& stdpipe = (type == OUT) ? _stdout : _stderr;
-        if(stdpipe.is_closed()){
-            return "";
-        }
-
-        // 使用管道的read_line方法获取一行数据
-        string line = stdpipe.read_line();
+        Pipe& pipe = (type == OUT) ? _stdout : _stderr;
+        // 利用Pipe类的read_line方法
+        string line = pipe.read_line();
         _empty = line.empty();
         return line;
     }
-
-    char Process::getc(){
-        return read_char(OUT);
-    }
-
     string Process::getline(){
         return read_line(OUT);
     }
-
+    char Process::getchar(){
+        return read_char(OUT);
+    }
     bool Process::empty(){
-        if(_stdout.is_closed()){
-            return true;
-        }
-
-        // 使用管道的empty方法检查是否有可读数据
         return _stdout.empty();
     }
 
@@ -400,8 +377,9 @@ namespace process{
     }
 
     void Process::close(){
-        close_pipe(1);
-        close_pipe(0);
+        _stdin.close();
+        _stdout.close();
+        _stderr.close();
     }
 
     bool Process::kill(int signal){
@@ -478,7 +456,6 @@ namespace process{
             kill(SIGTERM);
         }
         close();
-        close_pipe(1);
         wait();
     }
 
@@ -503,19 +480,5 @@ namespace process{
 
     void Process::clear_env(){
         _env_vars.clear();
-    }
-
-    void Process::close_pipe(bool flag){
-        if(flag){
-            // 关闭子进程不使用的管道端
-            _stdin.close();
-            _stdout.close();
-            _stderr.close();
-        } else {
-            // 关闭父进程不使用的管道端
-            _stdin.set_type(PIPE_WRITE);
-            _stdout.set_type(PIPE_READ);
-            _stderr.set_type(PIPE_READ);
-        }
     }
 }

@@ -115,12 +115,8 @@ namespace process{
         void init_pipe();
         // 创建子进程并初始化
         void launch(const char arg[],char *args[]);
-        // 关闭特定的管道 0子进程
-        void close_pipe(bool flag);
-        // STL转换
-        void save_args(std::vector<string> &args);
         // 读字符
-        char read_char(TypeOut OUT);
+        char read_char(TypeOut type);
         // 读取一行
         string read_line(TypeOut type);
     public:
@@ -143,7 +139,7 @@ namespace process{
         // 读一行
         string getline();
         // 读字符
-        char getc();
+        char getchar();
         // 刷新输入
         Process &flush();
         // 关闭所有管道
