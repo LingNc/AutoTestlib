@@ -212,9 +212,8 @@ namespace process{
     }
 
     void Process::init_pipe(){
-        if(pipe(_stdin)==-1
-            ||pipe(_stdout)==-1
-            ||pipe(_stderr)==-1){
+        // 创建管道
+        if(_stdin.is_closed()||_stdout.is_closed()||_stderr.is_closed()){
             throw std::runtime_error(name+":管道创建错误！");
         }
     }
@@ -258,22 +257,6 @@ namespace process{
         }
         _status=RUNNING;
         close_pipe(0);
-    }
-
-    void Process::close_pipe(bool flag){
-        // 确保先关闭读端再关闭写端
-        if(_stdin[flag]!=-1){
-            ::close(_stdin[flag]);
-            _stdin[flag]=-1;
-        }
-        if(_stdout[!flag]!=-1){
-            ::close(_stdout[!flag]);
-            _stdout[!flag]=-1;
-        }
-        if(_stderr[!flag]!=-1){
-            ::close(_stderr[!flag]);
-            _stderr[!flag]=-1;
-        }
     }
 
     // 修改save_args方法使用Args类
@@ -351,83 +334,44 @@ namespace process{
     }
 
     Process &Process::write(const string &data){
-        if(_stdin[1]!=-1){
-            if(::write(_stdin[1],data.c_str(),data.size())==-1){
-                throw std::runtime_error(name+":进程读取错误！");
-            }
+        if(_stdin.is_closed()){
+            throw std::runtime_error(name + ":进程写入错误！");
         }
 
+        // 使用管道的write方法写入数据
+        _stdin.write(data);
         return *this;
     }
 
     string Process::read(TypeOut type){
-        int stdpipe=(type==OUT)?_stdout[0]:_stderr[0];
-        if(stdpipe==-1) return "";
-
-        char buffer[_buffer_size];
-        string result;
-
-        // 设置非阻塞模式以避免无限等待
-        _sys.start_blocked(stdpipe);
-
-
-        int nbytes;
-        while(true){
-            nbytes=::read(stdpipe,buffer,_buffer_size-1);
-            if(nbytes<=0) break;
-            buffer[nbytes]='\0';
-            result+=buffer;
+        Pipe& stdpipe = (type == OUT) ? _stdout : _stderr;
+        if(stdpipe.is_closed()){
+            return "";
         }
 
-        // 恢复阻塞模式
-        _sys.close_blocked(stdpipe);
-
-        _empty=(result=="")?true:false;
-        return result;
+        // 使用管道的read_all方法获取所有可用数据
+        return stdpipe.read_all();
     }
 
     char Process::read_char(TypeOut type){
-        // 获取合适的管道文件描述符
-        int stdpipe=(type==OUT)?_stdout[0]:_stderr[0];
-        if(stdpipe==-1) return '\0';
+        Pipe& stdpipe = (type == OUT) ? _stdout : _stderr;
+        if(stdpipe.is_closed()){
+            return '\0';
+        }
 
-        // 设置非阻塞模式以避免无限等待
-        _sys.start_blocked(stdpipe);
-
-        char ch;
-        int nbytes;
-        nbytes=::read(stdpipe,&ch,1);
-
-        // 恢复阻塞模式
-        _sys.close_blocked(stdpipe);
-
-        if(nbytes>0) return ch;
-        else return 0;
+        // 使用管道的read_char方法获取一个字符
+        return stdpipe.read_char();
     }
 
     string Process::read_line(TypeOut type){
-        // 获取合适的管道文件描述符
-        int stdpipe=(type==OUT)?_stdout[0]:_stderr[0];
-        if(stdpipe==-1) return "";
-
-        // 设置非阻塞模式以避免无限等待
-        _sys.start_blocked(stdpipe);
-
-        string line;
-        char c;
-        // 有数据可读，开始读取一行数据
-        while(::read(stdpipe,&c,1)>0){
-            // 遇到换行符结束
-            if(c=='\n') break;
-            // 将字符添加到结果中
-            line+=c;
+        Pipe& stdpipe = (type == OUT) ? _stdout : _stderr;
+        if(stdpipe.is_closed()){
+            return "";
         }
-        _empty=(line=="")?true:false;
 
-
-        // 恢复阻塞模式
-        _sys.close_blocked(stdpipe);
-
+        // 使用管道的read_line方法获取一行数据
+        string line = stdpipe.read_line();
+        _empty = line.empty();
         return line;
     }
 
@@ -440,11 +384,19 @@ namespace process{
     }
 
     bool Process::empty(){
-        return _empty;
+        if(_stdout.is_closed()){
+            return true;
+        }
+
+        // 使用管道的empty方法检查是否有可读数据
+        return _stdout.empty();
     }
 
     void Process::set_block(bool status){
-        _sys.set_blocked(status);
+        // 设置所有管道的阻塞状态
+        _stdin.set_blocked(status);
+        _stdout.set_blocked(status);
+        _stderr.set_blocked(status);
     }
 
     void Process::close(){
@@ -551,5 +503,19 @@ namespace process{
 
     void Process::clear_env(){
         _env_vars.clear();
+    }
+
+    void Process::close_pipe(bool flag){
+        if(flag){
+            // 关闭子进程不使用的管道端
+            _stdin.close();
+            _stdout.close();
+            _stderr.close();
+        } else {
+            // 关闭父进程不使用的管道端
+            _stdin.set_type(PIPE_WRITE);
+            _stdout.set_type(PIPE_READ);
+            _stderr.set_type(PIPE_READ);
+        }
     }
 }

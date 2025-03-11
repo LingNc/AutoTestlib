@@ -15,6 +15,8 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 #include "JudgeSign.h"
+#include "sysapi.h"
+#include "Pipe.h"
 
 
 namespace process{
@@ -89,9 +91,7 @@ namespace process{
         // 当前进程状态
         Status _status=STOP;
         // 管道
-        int _stdin[2]={ -1,-1 };
-        int _stdout[2]={ -1,-1 };
-        int _stderr[2]={ -1,-1 };
+        Pipe _stdin,_stdout,_stderr;
         // pid
         pid_t _pid=-1;
         // 路径
