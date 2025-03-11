@@ -352,21 +352,23 @@ namespace process{
         return pipe.read_char();
     }
 
-    string Process::read_line(TypeOut type){
+    string Process::read_line(TypeOut type,char delimiter){
         Pipe& pipe = (type == OUT) ? _stdout : _stderr;
         // 利用Pipe类的read_line方法
-        string line = pipe.read_line();
+        string line=pipe.read_line(delimiter,_unblock_timeout);
         _empty = line.empty();
         return line;
     }
-    string Process::getline(){
-        return read_line(OUT);
+    string Process::getline(char delimiter){
+        return read_line(OUT,delimiter);
     }
+
     char Process::getchar(){
         return read_char(OUT);
     }
-    bool Process::empty(){
-        return _stdout.empty();
+
+    bool Process::empty(int timeout_ms){
+        return _stdout.empty(timeout_ms);
     }
 
     void Process::set_block(bool status){
@@ -374,6 +376,10 @@ namespace process{
         _stdin.set_blocked(status);
         _stdout.set_blocked(status);
         _stderr.set_blocked(status);
+    }
+
+    void Process::set_unblock_time(int timeout_ms){
+        _unblock_timeout=timeout_ms;
     }
 
     void Process::close(){

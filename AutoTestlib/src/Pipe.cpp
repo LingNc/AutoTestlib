@@ -143,7 +143,7 @@ namespace process{
     }
 
     // 新增方法: 读取一行数据
-    std::string Pipe::read_line(char delimiter){
+    std::string Pipe::read_line(char delimiter,int timeout_ms){
         if(_pipe[_type]==-1){
             throw std::runtime_error("Pipe is not open");
         }
@@ -153,7 +153,7 @@ namespace process{
 
         while(true){
             if(_isBlocked==false){
-                if(empty(100)){
+                if(empty(timeout_ms)){
                     // 如果非阻塞模式下没有数据可读，直接返回空字符串
                     return "";
                 }

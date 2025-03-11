@@ -54,7 +54,7 @@ namespace process{
         // 读取一个字符
         char read_char();
         // 读取一行数据
-        std::string read_line(char delimiter='\n');
+        std::string read_line(char delimiter='\n',int timeout_ms=100);
         // 读取所有可用数据
         std::string read_all();
         // 写入字符串

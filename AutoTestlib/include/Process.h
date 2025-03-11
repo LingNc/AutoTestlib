@@ -111,6 +111,8 @@ namespace process{
         int _exit_code=-1;
         // 缓冲区大小
         int _buffer_size=4096;
+        // 非阻塞超时
+        int _unblock_timeout=100;
         // 初始化管道
         void init_pipe();
         // 创建子进程并初始化
@@ -118,7 +120,7 @@ namespace process{
         // 读字符
         char read_char(TypeOut type);
         // 读取一行
-        string read_line(TypeOut type);
+        string read_line(TypeOut type,char delimiter='\n');
     public:
         // 构造函数
         Process();
@@ -137,7 +139,7 @@ namespace process{
         // 写入数据
         Process &write(const string &data);
         // 读一行
-        string getline();
+        string getline(char delimiter='\n');
         // 读字符
         char getchar();
         // 刷新输入
@@ -147,9 +149,11 @@ namespace process{
         // 终止进程
         bool kill(int signal=SIGKILL);
         // 流是否为空
-        bool empty();
+        bool empty(int timeout_ms=0);
         // 设置阻塞状态
         void set_block(bool status);
+        // 设置非阻塞超时时间
+        void set_unblock_time(int timeout_ms);
         // 设置环境变量
         Process &set_env(const std::string &name,const std::string &value);
         // 获取环境变量
