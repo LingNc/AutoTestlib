@@ -223,7 +223,7 @@ namespace process{
             _timer.start(_timelimit,[this](){
                 if(is_running()){
                     _status=TIMEOUT;  // 设置状态为超时
-                    kill(SIGKILL);      // 发送终止信号
+                    ::kill(_pid,SIGKILL);      // 发送终止信号
                 }
                 });
         }
@@ -275,8 +275,15 @@ namespace process{
         _stdin.set_type(PIPE_WRITE);
         _stdout.set_type(PIPE_READ);
         _stderr.set_type(PIPE_READ);
+        _child_message.set_type(PIPE_READ);
         // 接受子进程的开始信号
+        if(!_child_message.is_blocked()){
+            _child_message.set_blocked(true);
+        }
         string start_signal=_child_message.read_line('\n');
+        if(!_child_message.is_blocked()){
+            _child_message.set_blocked(false);
+        }
         if(start_signal!="Start"){
             _status=ERROR;
             throw std::runtime_error(name+":未获取到开始信号，子程序启动失败！");
@@ -429,11 +436,12 @@ namespace process{
         if(result==0){
             // 发送成功
             if(signal==SIGKILL||signal==SIGTERM){
-                // 等待进程结束
-                wait();
                 // 关闭管道
+                _code=wait();
                 close();
-                _status=STOP;
+                if(_status!=TIMEOUT){
+                    _status=STOP;
+                }
             }
             return true;
         }

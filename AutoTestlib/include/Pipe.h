@@ -3,7 +3,7 @@
 
 namespace process{
     // 管道类型枚举
-    enum PipeType{ PIPE_READ=0,PIPE_WRITE=1 };
+    enum PipeType{ PIPE_READ=0,PIPE_WRITE=1,PIPE_NO=2};
 
     // 管道类
     class Pipe{
@@ -13,7 +13,7 @@ namespace process{
         // 管道阻塞信号
         int _flags;
         // 管道类型 1 为写，0 为读
-        bool _type=PIPE_READ;
+        int _type=PIPE_NO;
         // 管道阻塞模式
         int _isBlocked=true;
         // 缓冲区大小
@@ -47,10 +47,9 @@ namespace process{
         Handle get_handle();
         Handle operator[](int index);
         // 底层接口：读取数据
-        int read(char buffer[],int size);
+        ssize_t read(void *buffer,size_t size);
         // 底层接口：写入数据
-        int write(const char data[],int size);
-
+        ssize_t write(const void *data,size_t size);
         // 读取一个字符
         char read_char();
         // 读取一行数据
@@ -64,7 +63,8 @@ namespace process{
         Pipe &operator<<(const T &data){
             std::stringstream ss;
             ss<<data;
-            return write(ss.str());
+            write(ss.str());
+            return *this;
         }
         Pipe &operator<<(std::ostream &(*pf)(std::ostream &));
 

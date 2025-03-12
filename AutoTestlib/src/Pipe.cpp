@@ -110,15 +110,12 @@ namespace process{
         return _pipe[index];
     }
     // 读取指定大小的数据
-    int Pipe::read(char buffer[],int size){
-        int bytes_read=::read(_pipe[_type],buffer,size);
-        buffer[bytes_read]='\0';
-        return bytes_read;
+    ssize_t Pipe::read(void* buffer,size_t size){
+        return ::read(_pipe[_type],buffer,size);
     }
     // 写入指定大小的数据
-    int Pipe::write(const char data[],int size){
-        int bytes_written=::write(_pipe[_type],data,size);
-        return bytes_written;
+    ssize_t Pipe::write(const void* data,size_t size){
+        return ::write(_pipe[_type],data,size);
     }
 
     // 新增方法: 读取一个字符
@@ -126,9 +123,11 @@ namespace process{
         if(_pipe[_type]==-1){
             throw std::runtime_error("Pipe is not open");
         }
-
+        if(_type==PIPE_NO){
+            throw std::runtime_error("管道未被初始化为特定模式！");
+        }
         char c;
-        int bytes_read=::read(_pipe[_type],&c,1);
+        int bytes_read=read(&c,1);
         if(bytes_read<0){
             if(errno==EAGAIN||errno==EWOULDBLOCK){
                 return '\0'; // 非阻塞模式下没有数据
@@ -147,7 +146,9 @@ namespace process{
         if(_pipe[_type]==-1){
             throw std::runtime_error("Pipe is not open");
         }
-
+        if(_type==PIPE_NO){
+            throw std::runtime_error("管道未被初始化为特定模式！");
+        }
         std::string line;
         char c;
 
@@ -158,7 +159,7 @@ namespace process{
                     return "";
                 }
             }
-            int bytes_read=::read(_pipe[_type],&c,1);
+            int bytes_read=read(&c,1);
             if(bytes_read<0){
                 if(errno==EAGAIN||errno==EWOULDBLOCK){
                     // 没有更多数据了
@@ -186,11 +187,14 @@ namespace process{
         if(_pipe[_type]==-1){
             throw std::runtime_error("Pipe is not open");
         }
+        if(_type==PIPE_NO){
+            throw std::runtime_error("管道未被初始化为特定模式！");
+        }
         char buffer[_bufferSize];
         std::string result;
 
         while(true){
-            int bytes_read=::read(_pipe[_type],buffer,_bufferSize-1);
+            int bytes_read=read(buffer,_bufferSize-1);
             if(bytes_read<0){
                 if(errno==EAGAIN||errno==EWOULDBLOCK){
                     // 没有更多数据了

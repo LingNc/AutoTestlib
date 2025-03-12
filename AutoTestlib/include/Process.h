@@ -113,6 +113,8 @@ namespace process{
         bool _enable_color=false;
         // 退出状态
         int _exit_code=-1;
+        // 判断状态
+        JudgeCode _code=Waiting;
         // 缓冲区大小
         int _buffer_size=4096;
         // 非阻塞超时
