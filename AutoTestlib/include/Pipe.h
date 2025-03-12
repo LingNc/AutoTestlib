@@ -59,5 +59,21 @@ namespace process{
         std::string read_all();
         // 写入字符串
         void write(const std::string &data);
+        // 重载运算符
+        template<typename T>
+        Pipe &operator<<(const T &data){
+            std::stringstream ss;
+            ss<<data;
+            return write(ss.str());
+        }
+        Pipe &operator<<(std::ostream &(*pf)(std::ostream &));
+
+        template<typename T>
+        Pipe &operator>>(T &data){
+            std::stringstream ss;
+            ss<<read_all();
+            ss>>data;
+            return *this;
+        }
     };
 }

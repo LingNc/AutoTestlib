@@ -92,6 +92,8 @@ namespace process{
         Status _status=STOP;
         // 管道
         Pipe _stdin,_stdout,_stderr;
+        // 子进程信息传递控制管道
+        Pipe _child_message;
         // pid
         pid_t _pid=-1;
         // 路径
@@ -103,6 +105,8 @@ namespace process{
         std::map<string,string> _env_vars;
         // 内存限制
         int _memsize=0;
+        // 时间超限
+        int _timelimit=0;
         // 输出是否空
         bool _empty=true;
         // 是否启用颜色
@@ -117,6 +121,8 @@ namespace process{
         void init_pipe();
         // 创建子进程并初始化
         void launch(const char arg[],char *args[]);
+        // 开始计时是否超时
+        void start_timer();
         // 读字符
         char read_char(TypeOut type);
         // 读取一行

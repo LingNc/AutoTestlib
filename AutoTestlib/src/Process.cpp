@@ -168,18 +168,18 @@ namespace process{
 
     void Timer::start(int timeout_ms,std::function<void()> callback){
         stop();
-        running=true;
+        running=true;  // 正确设置运行标志
         thread=std::thread([this,timeout_ms,callback](){
             // 使用 sleep_for 等待指定时间
             std::this_thread::sleep_for(std::chrono::milliseconds(timeout_ms));
-            if(running){
+            if(running){  // 检查是否仍然需要执行回调
                 callback();
             }
             });
     }
 
     void Timer::stop(){
-        running=false;
+        running=false;  // 先设置标志，防止回调被执行
         if(thread.joinable()){
             thread.join();
         }
@@ -187,17 +187,16 @@ namespace process{
 
     // 进程类
     Process &Process::set_timeout(int timeout_ms){
-        _timer.start(timeout_ms,[this](){
-            if(is_running()){
-                kill(SIGKILL);
-                _status=TIMEOUT;
-            }
-            });
+        if(timeout_ms<=0){
+            throw std::invalid_argument(name+":超时设置错误！");
+        }
+        _timelimit=timeout_ms;
         return *this;
     }
 
     Process &Process::cancel_timeout(){
         _timer.stop();
+        _timelimit=0;
         return *this;
     }
 
@@ -218,6 +217,17 @@ namespace process{
         }
     }
 
+    void Process::start_timer(){
+        if(_timelimit>0){
+            _timer.stop();  // 确保停止任何现有的计时器
+            _timer.start(_timelimit,[this](){
+                if(is_running()){
+                    _status=TIMEOUT;  // 设置状态为超时
+                    kill(SIGKILL);      // 发送终止信号
+                }
+                });
+        }
+    }
     void Process::launch(const char arg[],char *args[]){
         _pid=fork();
         // 子进程
@@ -249,6 +259,10 @@ namespace process{
             _stdout.redirect(STDOUT_FILENO);
             _stderr.redirect(STDERR_FILENO);
 
+            // 通讯 进程开始
+            _child_message.set_type(PIPE_WRITE);
+            _child_message<<"Start"<<std::endl;
+
             // 运行子程序
             execvp(arg,args);
             exit(EXIT_FAILURE);
@@ -261,6 +275,16 @@ namespace process{
         _stdin.set_type(PIPE_WRITE);
         _stdout.set_type(PIPE_READ);
         _stderr.set_type(PIPE_READ);
+        // 接受子进程的开始信号
+        string start_signal=_child_message.read_line('\n');
+        if(start_signal!="Start"){
+            _status=ERROR;
+            throw std::runtime_error(name+":未获取到开始信号，子程序启动失败！");
+        }
+        // 开始计时
+        if(_timelimit>0){
+            start_timer();
+        }
     }
     Process::Process(){}
 
@@ -289,6 +313,8 @@ namespace process{
         waitpid(_pid,&status,0);
         _exit_code=status;
         _pid=-1;
+
+        // 首先检查是否已经标记为超时
         if(_status==TIMEOUT){
             return TimeLimitEXceeded;
         }
@@ -309,13 +335,17 @@ namespace process{
             switch(signal){
             case SIGSEGV:
                 return RuntimeError;
-                break;
-            case SIGABRT||SIGKILL:
+                // 修复逻辑运算符错误，使用单独的case
+            case SIGABRT:
                 return MemoryLimitExceeded;
-                break;
+            case SIGKILL:
+                // 如果已经标记为TIMEOUT，则返回超时错误
+                if(_status==TIMEOUT){
+                    return TimeLimitEXceeded;
+                }
+                return MemoryLimitExceeded;
             case SIGFPE:
                 return FloatingPointError;
-                break;
             default:
                 return RuntimeError;
             }
@@ -332,7 +362,7 @@ namespace process{
 
     Process &Process::write(const string &data){
         if(_stdin.is_closed()){
-            throw std::runtime_error(name + ":进程写入错误！");
+            throw std::runtime_error(name+":进程写入错误！");
         }
 
         // 使用Pipe类的write方法直接写入字符串数据
@@ -341,22 +371,22 @@ namespace process{
     }
 
     string Process::read(TypeOut type){
-        Pipe& pipe = (type == OUT) ? _stdout : _stderr;
+        Pipe &pipe=(type==OUT)?_stdout:_stderr;
         // 利用Pipe类的read_all方法获取所有可用数据
         return pipe.read_all();
     }
 
     char Process::read_char(TypeOut type){
-        Pipe& pipe = (type == OUT) ? _stdout : _stderr;
+        Pipe &pipe=(type==OUT)?_stdout:_stderr;
         // 利用Pipe类的read_char方法
         return pipe.read_char();
     }
 
     string Process::read_line(TypeOut type,char delimiter){
-        Pipe& pipe = (type == OUT) ? _stdout : _stderr;
+        Pipe &pipe=(type==OUT)?_stdout:_stderr;
         // 利用Pipe类的read_line方法
         string line=pipe.read_line(delimiter,_unblock_timeout);
-        _empty = line.empty();
+        _empty=line.empty();
         return line;
     }
     string Process::getline(char delimiter){

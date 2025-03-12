@@ -213,4 +213,11 @@ namespace process{
     void Pipe::write(const std::string &data){
         write(data.c_str(),data.length());
     }
+    // 重载运算符
+    Pipe &Pipe::operator<<(std::ostream &(*pf)(std::ostream &)){
+        if(pf==static_cast<std::ostream&(*)(std::ostream &)>(std::endl)){
+            write("\n");
+        }
+        return *this;
+    }
 }
