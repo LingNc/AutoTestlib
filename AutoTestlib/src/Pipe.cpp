@@ -5,6 +5,16 @@
 #include <poll.h>
 
 namespace process{
+    // 单位转换函数实现
+    size_t GB(size_t size){
+        return size*1024*1024*1024;
+    }
+    size_t MB(size_t size){
+        return size*1024*1024;
+    }
+    size_t KB(size_t size){
+        return size*1024;
+    }
     // 管道类实现
     Pipe::Pipe(){
         _type=false;
@@ -70,6 +80,8 @@ namespace process{
         if(size<=0){
             throw std::invalid_argument("Buffer size must be greater than 0");
         }
+        // 设置管道缓冲区大小
+        fcntl(_pipe[_type],F_SETPIPE_SZ,size);
         _bufferSize=size;
     }
     // 获取管道类型

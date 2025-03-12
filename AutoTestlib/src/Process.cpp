@@ -437,6 +437,13 @@ namespace process{
         _unblock_timeout=timeout_ms;
     }
 
+    void Process::set_buffer_size(size_t size){
+        // 设置所有管道的缓冲区大小
+        _stdin.set_buffer_size(size);
+        _stdout.set_buffer_size(size);
+        _stderr.set_buffer_size(size);
+    }
+
     void Process::close(){
         _stdin.close();
         _stdout.close();

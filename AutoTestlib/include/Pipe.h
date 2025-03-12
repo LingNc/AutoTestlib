@@ -3,8 +3,11 @@
 
 namespace process{
     // 管道类型枚举
-    enum PipeType{ PIPE_READ=0,PIPE_WRITE=1,PIPE_NO=2};
-
+    enum PipeType{ PIPE_READ=0,PIPE_WRITE=1,PIPE_NO=2 };
+    // 单位转换
+    size_t GB(size_t size);
+    size_t MB(size_t size);
+    size_t KB(size_t size);
     // 管道类
     class Pipe{
     private:
@@ -17,7 +20,7 @@ namespace process{
         // 管道阻塞模式
         int _isBlocked=true;
         // 缓冲区大小
-        int _bufferSize=4096;
+        int _bufferSize=KB(4);
     public:
         // 构造函数,创建管道
         Pipe();

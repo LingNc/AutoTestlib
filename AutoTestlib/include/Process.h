@@ -165,6 +165,8 @@ namespace process{
         void set_block(bool status);
         // 设置非阻塞超时时间
         void set_unblock_time(int timeout_ms);
+        // 设置管道缓冲区大小
+        void set_buffer_size(size_t size);
         // 设置环境变量
         Process &set_env(const std::string &name,const std::string &value);
         // 获取环境变量
