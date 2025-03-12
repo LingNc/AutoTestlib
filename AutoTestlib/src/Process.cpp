@@ -168,18 +168,32 @@ namespace process{
 
     void Timer::start(int timeout_ms,std::function<void()> callback){
         stop();
-        running=true;  // 正确设置运行标志
+        // 正确设置运行标志
+        running=true;
         thread=std::thread([this,timeout_ms,callback](){
-            // 使用 sleep_for 等待指定时间
-            std::this_thread::sleep_for(std::chrono::milliseconds(timeout_ms));
-            if(running){  // 检查是否仍然需要执行回调
+            std::unique_lock<std::mutex> lock(mutex);
+            // 使用条件变量的wait_for，可随时被唤醒
+            if(cv.wait_for(lock,std::chrono::milliseconds(timeout_ms),
+                [this]{ return !running; })){
+                // 如果被提前唤醒且running=false，直接退出
+                return;
+            }
+            // 超时且仍在运行，执行回调
+            if(running){
                 callback();
             }
             });
     }
 
     void Timer::stop(){
-        running=false;  // 先设置标志，防止回调被执行
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            running=false;
+        }
+        // 唤醒等待的线程
+        cv.notify_all();
+
+        // 仍然需要join，但现在线程会立即退出
         if(thread.joinable()){
             thread.join();
         }
@@ -277,13 +291,13 @@ namespace process{
         _stderr.set_type(PIPE_READ);
         _child_message.set_type(PIPE_READ);
         // 接受子进程的开始信号
-        if(!_child_message.is_blocked()){
-            _child_message.set_blocked(true);
-        }
+        // if(!_child_message.is_blocked()){
+        //     _child_message.set_blocked(true);
+        // }
         string start_signal=_child_message.read_line('\n');
-        if(!_child_message.is_blocked()){
-            _child_message.set_blocked(false);
-        }
+        // if(!_child_message.is_blocked()){
+        //     _child_message.set_blocked(false);
+        // }
         if(start_signal!="Start"){
             _status=ERROR;
             throw std::runtime_error(name+":未获取到开始信号，子程序启动失败！");
@@ -360,6 +374,10 @@ namespace process{
         else{
             _status=RE;
             return RuntimeError;
+        }
+        // 停止计时
+        if(_status!=RUNNING){
+            _timer.stop();
         }
     }
 

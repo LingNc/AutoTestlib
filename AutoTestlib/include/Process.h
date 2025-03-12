@@ -9,6 +9,8 @@
 #include <chrono>
 #include <thread>
 #include <atomic>
+#include <mutex>
+#include <condition_variable>
 #include <functional>
 #include <unistd.h>
 #include <sys/types.h>
@@ -25,7 +27,8 @@ namespace process{
     private:
         std::thread thread;
         std::atomic<bool> running{ false };
-
+        std::mutex mutex;
+        std::condition_variable cv;
     public:
         Timer()=default;
         ~Timer();
@@ -88,8 +91,8 @@ namespace process{
         Args _args;
         // 系统接口
         System _sys;
-        // 当前进程状态
-        Status _status=STOP;
+        // 当前进程状态 原子变量
+        std::atomic<Status> _status=STOP;
         // 管道
         Pipe _stdin,_stdout,_stderr;
         // 子进程信息传递控制管道
