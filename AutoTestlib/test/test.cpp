@@ -19,23 +19,39 @@ int main(int argc, char** argv) {
     // 创建测试管理器
     TestManager manager;
 
+    // 转换参数表
+    std::vector<std::string> args;
+    for (int i = 0; i < argc; ++i) {
+        args.push_back(argv[i]);
+    }
+
     // 根据命令行参数选择要运行的测试
     bool run_all = (argc < 2);
-    bool run_args = run_all || (std::string(argv[1]) == "args");
-    bool run_process = run_all || (std::string(argv[1]) == "process");
-    bool run_keycircle = run_all || (std::string(argv[1]) == "keycircle");
-    bool run_judgesign = run_all || (std::string(argv[1]) == "judgesign");
-    bool run_pipe = run_all || (std::string(argv[1]) == "pipe");  // 添加pipe参数支持
+    bool run_args=(args[1]=="args")||run_all;
+    bool run_process=(args[1]=="process")||run_all;
+    bool run_keycircle=(args[1]=="keycircle")||run_all;
+    bool run_judgesign=(args[1]=="judgesign")||run_all;
+    bool run_pipe=(args[1]=="pipe")||run_all;
 
     // 添加要运行的测试套件
     if (run_args) {
         manager.add_suite(create_args_tests());
     }
 
-    if (run_process) {
-        manager.add_suite(create_process_basic_tests());
-        manager.add_suite(create_process_advanced_tests());
-        manager.add_suite(create_process_complex_tests());
+    if(run_process){
+        bool run_all_process=(argc<3)||run_all||(args[2]=="all");
+        bool run_basic=(args[2]=="basic")||run_all_process;
+        bool run_advanced=(args[2]=="advanced")||run_all_process;
+        bool run_complex=(args[2]=="complex")||run_all_process;
+        if(run_basic){
+            manager.add_suite(create_process_basic_tests());
+        }
+        if(run_advanced){
+            manager.add_suite(create_process_advanced_tests());
+        }
+        if(run_complex){
+            manager.add_suite(create_process_complex_tests());
+        }
     }
 
     if (run_keycircle) {

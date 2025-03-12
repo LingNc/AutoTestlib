@@ -107,14 +107,13 @@ TestSuite create_process_complex_tests() {
         mixedProc << "line 1" << std::endl;
         std::string output1;
 
-        // 读取时可能需要多次尝试，因为是非阻塞的
-        int attempts = 0;
-        while (output1.empty() && attempts < 10) {
+        // 使用empty方法等待数据可用，设置最多100ms超时
+        if (!mixedProc.empty(100)) {
             output1 = mixedProc.getline();
-            if (output1.empty()) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            }
-            attempts++;
+        }
+        else {
+            // 如果100ms内没有数据，则失败
+            assert_true(false, "非阻塞模式下超时未收到数据");
         }
 
         // 切换回阻塞模式

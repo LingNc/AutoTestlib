@@ -36,18 +36,16 @@ TestSuite create_process_basic_tests() {
         pc::Process lsProc("/bin/ls", pc::Args("ls"));
         lsProc.start();
         lsProc.set_block(false);
-        bool hasOutput = false;
+
+        // 使用empty方法检查是否有数据，设置200ms超时
+        bool hasData = !lsProc.empty(200); // 使用empty函数直接检查
+
         std::string line;
-        int attempts = 0;
-        while (!lsProc.empty() && attempts < 100) {
+        if (hasData) {
             line = lsProc.getline();
-            if (!line.empty()) {
-                hasOutput = true;
-                break;
-            }
-            attempts++;
         }
-        assert_true(hasOutput, "非阻塞模式下无法读取输出");
+
+        assert_true(hasData && !line.empty(), "非阻塞模式下无法读取输出");
     });
 
     // 测试环境变量
