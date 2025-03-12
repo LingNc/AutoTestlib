@@ -142,7 +142,7 @@ inline void assert_equal(const std::string& actual, const std::string& expected,
 template<typename T>
 inline void assert_equal(const T& actual, const T& expected, const std::string& message = "值不相等") {
     if (actual != expected) {
-        throw std::runtime_error(message);
+        throw std::runtime_error(message+"\n  期望: " + std::to_string(expected) + "\n  实际: " + std::to_string(actual));
     }
 }
 
