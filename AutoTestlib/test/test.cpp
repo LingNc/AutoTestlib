@@ -39,17 +39,23 @@ int main(int argc, char** argv) {
     }
 
     if(run_process){
+        bool run_basic=false,
+             run_advanced=false,
+             run_complex=false;
         bool run_all_process=(argc<3)||run_all||(args[2]=="all");
-        bool run_basic=(args[2]=="basic")||run_all_process;
-        bool run_advanced=(args[2]=="advanced")||run_all_process;
-        bool run_complex=(args[2]=="complex")||run_all_process;
-        if(run_basic){
+        if(argc==3){
+            run_basic=(args[2]=="basic");
+            run_advanced=(args[2]=="advanced");
+            run_complex=(args[2]=="complex");
+        }
+
+        if(run_basic||run_all_process){
             manager.add_suite(create_process_basic_tests());
         }
-        if(run_advanced){
+        if(run_advanced||run_all_process){
             manager.add_suite(create_process_advanced_tests());
         }
-        if(run_complex){
+        if(run_complex||run_all_process){
             manager.add_suite(create_process_complex_tests());
         }
     }

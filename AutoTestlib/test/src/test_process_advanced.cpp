@@ -10,7 +10,7 @@ TestSuite create_process_advanced_tests(){
     TestSuite suite("Process类-高级功能");
 
     // 测试字符读取
-    suite.add_test("单字符读取",[]()->std::string{
+    suite.add_test("单字符读取",[]()-> std::string{
         pc::Process echoCharProc("/bin/echo",pc::Args("echo").add("ABC"));
         echoCharProc.start();
         char c=echoCharProc.getchar();
@@ -30,12 +30,20 @@ TestSuite create_process_advanced_tests(){
         }
         // 调整缓冲区大小
         cat.set_buffer_size(pc::MB(16));
+        // 计时
+        auto start_time=std::chrono::high_resolution_clock::now();
         cat.write(large_data);
+        auto end_time=std::chrono::high_resolution_clock::now();
+        auto writeTimes=std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count();
+        start_time=std::chrono::high_resolution_clock::now();
         std::string output=cat.read(pc::OUT);
+        end_time=std::chrono::high_resolution_clock::now();
+        auto readTimes=std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count();
         cat.kill(SIGTERM);
         cat.wait();
         assert_equal(output,large_data);
-        return "";
+        string info="写入时间: "+std::to_string(writeTimes)+"ms\n读取时间: "+std::to_string(readTimes)+"ms";
+        return info;
         });
 
     // 测试完整的管道输入输出
@@ -118,11 +126,11 @@ TestSuite create_process_advanced_tests(){
 
         // 写入文件
         std::ofstream file("memtest.c");
-        file << program;
+        file<<program;
         file.close();
 
         // 编译程序
-        pc::Process gcc("/usr/bin/gcc", pc::Args("gcc").add("-o").add("memtest").add("memtest.c"));
+        pc::Process gcc("/usr/bin/gcc",pc::Args("gcc").add("-o").add("memtest").add("memtest.c"));
         gcc.start();
         gcc.wait();
 
@@ -134,13 +142,13 @@ TestSuite create_process_advanced_tests(){
         JudgeCode result=proc.wait();
 
         // 清理
-        pc::Process rm("/bin/rm", pc::Args("rm").add("-f").add("memtest").add("memtest.c"));
+        pc::Process rm("/bin/rm",pc::Args("rm").add("-f").add("memtest").add("memtest.c"));
         rm.start();
         rm.wait();
         assert_true(result==JudgeCode::MemoryLimitExceeded||proc.get_exit_code()!=0,
             "内存限制应该阻止程序正常执行");
         return "";
-    });
+        });
 
     // 测试设置环境变量
     suite.add_test("环境变量设置",[]()->std::string{

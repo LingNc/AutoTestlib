@@ -6,9 +6,10 @@
 #include <functional>
 #include <vector>
 #include <chrono>
+#include <iomanip>
 
 // 测试函数类型
-typedef std::function<void()> TestFunction;
+typedef std::function<std::string()> TestFunction;
 
 // 测试信息结构
 struct TestInfo {
@@ -43,13 +44,17 @@ public:
         for (const auto& test : tests) {
             try {
                 auto start = std::chrono::high_resolution_clock::now();
-                test.func();
+                std::string info = test.func();
                 auto end = std::chrono::high_resolution_clock::now();
                 auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
                 std::cout << "✓ [" << test.name << "] 通过! (" << duration << "ms)" << std::endl;
                 passed++;
-            } catch (const std::exception& e) {
+                if (!info.empty()) {
+                    std::cout << "  提示: " << info << std::endl;
+                }
+            }
+            catch(const std::exception &e){
                 std::cerr << "✗ [" << test.name << "] 失败: " << e.what() << std::endl;
                 failed++;
             } catch (...) {
@@ -109,14 +114,14 @@ public:
         }
 
         auto end_time = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time).count();
+        auto duration = std::chrono::duration<double>(end_time - start_time).count();
 
         std::cout << "\n========================================" << std::endl;
         std::cout << "总结: " << total_passed << " 通过, " << total_failed << " 失败" << std::endl;
         if (all_passed) {
-            std::cout << "✓ 所有测试通过! (耗时: " << duration << "秒)" << std::endl;
+            std::cout << "✓ 所有测试通过! (耗时: " << std::fixed << std::setprecision(1) << duration << "秒)" << std::endl;
         } else {
-            std::cout << "✗ 测试出现错误! (耗时: " << duration << "秒)" << std::endl;
+            std::cout << "✗ 测试出现错误! (耗时: " << std::fixed << std::setprecision(1) << duration << "秒)" << std::endl;
         }
 
         // 打印评测标记
