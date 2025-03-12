@@ -46,10 +46,13 @@ namespace process{
     }
     // 重定向到输入输出
     void Pipe::redirect(Handle pipe){
-        if(_pipe[_type]==-1){
-            if(::dup2(_pipe[_type],pipe)==-1){
+        if(_pipe[_type]!=-1){  // 修正: 只有管道打开时才能重定向
+            if(::dup2(_pipe[_type],pipe)==-1){  // _pipe[_type]是源，pipe是目标
                 throw std::runtime_error("Failed to redirect pipe");
             }
+        }
+        else {
+            throw std::runtime_error("Cannot redirect: pipe is closed");
         }
     }
     // 是否是阻塞模式
@@ -94,10 +97,7 @@ namespace process{
     }
     // 管道是否关闭
     bool Pipe::is_closed(){
-        if(_pipe[_type]==-1||_pipe[!_type]==-1){
-            return true;
-        }
-        return false;
+        return _pipe[_type]==-1;
     }
     // 获取管道句柄
     Handle Pipe::get_handle(){
