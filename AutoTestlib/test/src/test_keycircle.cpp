@@ -10,7 +10,7 @@ TestSuite create_keycircle_tests() {
     TestSuite suite("KeyCircle类");
 
     // 测试不存在情况
-    suite.add_test("不存在检查", []() {
+    suite.add_test("不存在检查", []() -> std::string {
         // 准备测试环境
         fs::path testKeyPath = "./test_config/test.key";
         if (fs::exists(testKeyPath)) {
@@ -28,10 +28,11 @@ TestSuite create_keycircle_tests() {
         if (fs::exists("./test_config")) {
             fs::remove_all("./test_config");
         }
+        return "";
     });
 
     // 测试保存和获取密钥
-    suite.add_test("保存和获取", []() {
+    suite.add_test("保存和获取", []() -> std::string {
         // 准备测试环境
         fs::path testKeyPath = "./test_config/test.key";
         if (!fs::exists("./test_config")) {
@@ -51,10 +52,11 @@ TestSuite create_keycircle_tests() {
 
         // 清理
         fs::remove_all("./test_config");
+        return "";
     });
 
     // 测试更新密钥
-    suite.add_test("更新密钥", []() {
+    suite.add_test("更新密钥", []() -> std::string {
         // 准备测试环境
         fs::path testKeyPath = "./test_config/test.key";
         if (!fs::exists("./test_config")) {
@@ -75,6 +77,7 @@ TestSuite create_keycircle_tests() {
 
         // 清理
         fs::remove_all("./test_config");
+        return "";
     });
 
     return suite;
