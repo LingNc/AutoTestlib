@@ -3,7 +3,15 @@
 
 namespace process{
     // 管道类型枚举
-    enum PipeType{ PIPE_READ=0,PIPE_WRITE=1,PIPE_NO=2 };
+    enum PipeType{
+        PIPE_READ=0,
+        PIPE_WRITE,
+        PIPE_NO,
+        PIPE,
+        PIPE_IN,
+        PIPE_OUT,
+        PIPE_ERR
+    };
     // 单位转换
     size_t GB(size_t size);
     size_t MB(size_t size);
@@ -16,7 +24,7 @@ namespace process{
         // 管道阻塞信号
         int _flags;
         // 管道类型 1 为写，0 为读
-        int _type=PIPE_NO;
+        int _pipeType=PIPE_NO;
         // 管道阻塞模式
         int _isBlocked=true;
         // 缓冲区大小
@@ -30,6 +38,8 @@ namespace process{
         void create();
         // 关闭管道
         void close();
+        // 重设管道
+        void recreate();
         // 设置管道阻塞模式
         void set_blocked(bool isblocked);
         // 重定向到输入输出
@@ -45,7 +55,7 @@ namespace process{
         // 检查是否有数据可读
         bool empty(int timeout_ms=0);
         // 管道是否关闭
-        bool is_closed();
+        bool is_closed(PipeType type=PIPE);
         // 获取管道句柄
         Handle get_handle();
         Handle operator[](int index);
@@ -58,7 +68,9 @@ namespace process{
         // 读取一行数据
         std::string read_line(char delimiter='\n',int timeout_ms=100);
         // 读取所有可用数据
-        std::string read_all();
+        std::string read_all(int timeout_ms=100);
+        // 读取指定大小的数据
+        std::string read_bytes(size_t bytes,int timeout_ms=100);
         // 写入字符串
         void write(const std::string &data);
         // 重载运算符

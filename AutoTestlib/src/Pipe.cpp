@@ -17,7 +17,7 @@ namespace process{
     }
     // 管道类实现
     Pipe::Pipe(){
-        _type=false;
+        _pipeType=false;
         _isBlocked=true;
         create();
     }
@@ -29,39 +29,46 @@ namespace process{
         if(::pipe(_pipe)==-1){
             throw std::runtime_error("Failed to create pipe");
         }
-        _type=true;
+        _pipeType=true;
+    }
+    // 重新创建管道
+    void Pipe::recreate(){
+        close();
+        _pipeType=false;
+        set_blocked(true);
+        _bufferSize=KB(4);
+        create();
     }
     // 关闭管道
     void Pipe::close(){
-        if(_pipe[0]!=-1){
-            ::close(_pipe[0]);
-            _pipe[0]=-1;
+        if(is_closed(PIPE_READ)){
+            ::close(_pipe[PIPE_READ]);
         }
-        if(_pipe[1]!=-1){
-            ::close(_pipe[1]);
-            _pipe[1]=-1;
+        if(is_closed(PIPE_WRITE)){
+            ::close(_pipe[PIPE_WRITE]);
         }
+        _pipeType=PIPE_NO;
     }
     // 设置阻塞模式
     void Pipe::set_blocked(bool isblocked){
         _isBlocked=isblocked;
         if(_isBlocked){
-            _flags=fcntl(_pipe[_type],F_GETFL);
-            fcntl(_pipe[_type],F_SETFL,_flags&~O_NONBLOCK);
+            _flags=fcntl(_pipe[_pipeType],F_GETFL);
+            fcntl(_pipe[_pipeType],F_SETFL,_flags&~O_NONBLOCK);
         }
         else{
-            _flags=fcntl(_pipe[_type],F_GETFL);
-            fcntl(_pipe[_type],F_SETFL,_flags|O_NONBLOCK);
+            _flags=fcntl(_pipe[_pipeType],F_GETFL);
+            fcntl(_pipe[_pipeType],F_SETFL,_flags|O_NONBLOCK);
         }
     }
     // 重定向到输入输出
     void Pipe::redirect(Handle pipe){
-        if(_pipe[_type]!=-1){  // 修正: 只有管道打开时才能重定向
-            if(::dup2(_pipe[_type],pipe)==-1){  // _pipe[_type]是源，pipe是目标
+        if(_pipe[_pipeType]!=-1){  // 修正: 只有管道打开时才能重定向
+            if(::dup2(_pipe[_pipeType],pipe)==-1){  // _pipe[_pipeType]是源，pipe是目标
                 throw std::runtime_error("Failed to redirect pipe");
             }
         }
-        else {
+        else{
             throw std::runtime_error("Cannot redirect: pipe is closed");
         }
     }
@@ -71,9 +78,8 @@ namespace process{
     }
     // 设置管道类型
     void Pipe::set_type(bool type){
-        _type=type;
-        ::close(_pipe[!_type]);
-        _pipe[!_type]=-1;
+        _pipeType=type;
+        ::close(_pipe[!_pipeType]);
     }
     // 设置缓冲区大小
     void Pipe::set_buffer_size(int size){
@@ -81,21 +87,21 @@ namespace process{
             throw std::invalid_argument("Buffer size must be greater than 0");
         }
         // 设置管道缓冲区大小
-        fcntl(_pipe[_type],F_SETPIPE_SZ,size);
+        fcntl(_pipe[_pipeType],F_SETPIPE_SZ,size);
         _bufferSize=size;
     }
     // 获取管道类型
     bool Pipe::get_type(){
-        return _type;
+        return _pipeType;
     }
     // 是否为空
     bool Pipe::empty(int timeout_ms){
-        if(_pipe[_type]==-1){
+        if(is_closed()){
             return true; // 管道未打开，认为是空的
         }
 
         struct pollfd pfd;
-        pfd.fd=_pipe[_type];
+        pfd.fd=_pipe[_pipeType];
         pfd.events=POLLIN;
 
         int ret=poll(&pfd,1,timeout_ms);
@@ -105,15 +111,19 @@ namespace process{
         }
 
         // 修正：ret > 0 且 pfd.revents & POLLIN 表示有数据可读，因此不为空
-        return !(ret > 0 && (pfd.revents & POLLIN));
+        return !(ret>0&&(pfd.revents&POLLIN));
     }
     // 管道是否关闭
-    bool Pipe::is_closed(){
-        return _pipe[_type]==-1;
+    bool Pipe::is_closed(PipeType type){
+        auto nowPipe=(type==PIPE)?_pipe[_pipeType]:_pipe[type];
+        int flags=fcntl(nowPipe,F_GETFD);
+        if(flags==-1&&errno==EBADF){
+            return true; // 管道已关闭
+        }
     }
     // 获取管道句柄
     Handle Pipe::get_handle(){
-        return _pipe[_type];
+        return _pipe[_pipeType];
     }
     Handle Pipe::operator[](int index){
         if(index<0||index>1){
@@ -122,20 +132,17 @@ namespace process{
         return _pipe[index];
     }
     // 读取指定大小的数据
-    ssize_t Pipe::read(void* buffer,size_t size){
-        return ::read(_pipe[_type],buffer,size);
+    ssize_t Pipe::read(void *buffer,size_t size){
+        return ::read(_pipe[_pipeType],buffer,size);
     }
     // 写入指定大小的数据
-    ssize_t Pipe::write(const void* data,size_t size){
-        return ::write(_pipe[_type],data,size);
+    ssize_t Pipe::write(const void *data,size_t size){
+        return ::write(_pipe[_pipeType],data,size);
     }
 
     // 新增方法: 读取一个字符
     char Pipe::read_char(){
-        if(_pipe[_type]==-1){
-            throw std::runtime_error("Pipe is not open");
-        }
-        if(_type==PIPE_NO){
+        if(_pipeType==PIPE_NO){
             throw std::runtime_error("管道未被初始化为特定模式！");
         }
         char c;
@@ -155,21 +162,16 @@ namespace process{
 
     // 新增方法: 读取一行数据
     std::string Pipe::read_line(char delimiter,int timeout_ms){
-        if(_pipe[_type]==-1){
-            throw std::runtime_error("Pipe is not open");
-        }
-        if(_type==PIPE_NO){
+        if(_pipeType==PIPE_NO){
             throw std::runtime_error("管道未被初始化为特定模式！");
         }
         std::string line;
         char c;
 
         while(true){
-            if(_isBlocked==false){
-                if(empty(timeout_ms)){
-                    // 如果非阻塞模式下没有数据可读，直接返回空字符串
-                    return "";
-                }
+            if(_isBlocked==false&&empty(timeout_ms)){
+                // 如果非阻塞模式下没有数据可读，直接返回空字符串
+                return "";
             }
             int bytes_read=read(&c,1);
             if(bytes_read<0){
@@ -195,17 +197,22 @@ namespace process{
     }
 
     // 新增方法: 读取所有可用数据
-    std::string Pipe::read_all(){
-        if(_pipe[_type]==-1){
-            throw std::runtime_error("Pipe is not open");
-        }
-        if(_type==PIPE_NO){
+    std::string Pipe::read_all(int timeout_ms){
+        if(_pipeType==PIPE_NO){
             throw std::runtime_error("管道未被初始化为特定模式！");
         }
-        char buffer[_bufferSize];
+        char *buffer=new char[_bufferSize];
+        if(buffer==nullptr){
+            throw std::runtime_error("管道缓存区读取内存分配失败");
+        }
         std::string result;
 
         while(true){
+            if(_isBlocked==false){
+                if(empty(timeout_ms)){
+                    break;
+                }
+            }
             int bytes_read=read(buffer,_bufferSize-1);
             if(bytes_read<0){
                 if(errno==EAGAIN||errno==EWOULDBLOCK){
@@ -222,6 +229,41 @@ namespace process{
             buffer[bytes_read]='\0';
             result+=buffer;
         }
+        return result;
+    }
+
+    // 实现
+    std::string Pipe::read_bytes(size_t bytes,int timeout_ms){
+        if(_pipeType==PIPE_NO){
+            throw std::runtime_error("管道未被初始化为特定模式！");
+        }
+
+        std::string result;
+        result.reserve(bytes);
+        size_t total_read=0;
+        char buffer[_bufferSize]; // 读取缓冲区
+
+        while(total_read<bytes){
+            // 检查是否有数据可读
+            if(_isBlocked==false&&empty(timeout_ms)){
+                break; // 非阻塞模式下没有更多数据
+            }
+
+            // 计算本次读取大小
+            size_t to_read=std::min(bytes-total_read,sizeof(buffer));
+            ssize_t read_bytes=read(buffer,to_read);
+
+            if(read_bytes<=0){
+                if(errno==EAGAIN||errno==EWOULDBLOCK){
+                    continue; // 非阻塞模式下暂时没有数据
+                }
+                break; // 出错或管道已关闭
+            }
+
+            result.append(buffer,read_bytes);
+            total_read+=read_bytes;
+        }
+
         return result;
     }
 

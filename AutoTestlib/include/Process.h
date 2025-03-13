@@ -121,7 +121,7 @@ namespace process{
         // 缓冲区大小
         int _buffer_size=4096;
         // 非阻塞超时
-        int _unblock_timeout=100;
+        int _flushTime=100;
         // 初始化管道
         void init_pipe();
         // 创建子进程并初始化
@@ -146,7 +146,7 @@ namespace process{
         // 获得退出状态
         int get_exit_code() const;
         // 读取数据
-        string read(TypeOut type);
+        string read(TypeOut type=OUT,size_t nbytes=0);
         // 写入数据
         Process &write(const string &data);
         // 读一行
@@ -156,7 +156,7 @@ namespace process{
         // 刷新输入
         Process &flush();
         // 关闭所有管道
-        void close();
+        void close(PipeType type=PIPE);
         // 终止进程
         bool kill(int signal=SIGKILL);
         // 流是否为空
@@ -164,7 +164,7 @@ namespace process{
         // 设置阻塞状态
         void set_block(bool status);
         // 设置非阻塞超时时间
-        void set_unblock_time(int timeout_ms);
+        void set_flush(int timeout_ms);
         // 设置管道缓冲区大小
         void set_buffer_size(size_t size);
         // 设置环境变量

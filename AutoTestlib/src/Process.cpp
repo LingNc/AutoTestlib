@@ -395,10 +395,16 @@ namespace process{
         return *this;
     }
 
-    string Process::read(TypeOut type){
+    string Process::read(TypeOut type,size_t nbytes){
         Pipe &pipe=(type==OUT)?_stdout:_stderr;
-        // 利用Pipe类的read_all方法获取所有可用数据
-        return pipe.read_all();
+        if(nbytes==0){
+            // 读取所有可用数据
+            return pipe.read_all(_flushTime);
+        }
+        else{
+            // 读取指定大小的数据
+            return pipe.read_bytes(nbytes,_flushTime);
+        }
     }
 
     char Process::read_char(TypeOut type){
@@ -410,7 +416,7 @@ namespace process{
     string Process::read_line(TypeOut type,char delimiter){
         Pipe &pipe=(type==OUT)?_stdout:_stderr;
         // 利用Pipe类的read_line方法
-        string line=pipe.read_line(delimiter,_unblock_timeout);
+        string line=pipe.read_line(delimiter,_flushTime);
         _empty=line.empty();
         return line;
     }
@@ -433,8 +439,8 @@ namespace process{
         _stderr.set_blocked(status);
     }
 
-    void Process::set_unblock_time(int timeout_ms){
-        _unblock_timeout=timeout_ms;
+    void Process::set_flush(int timeout_ms){
+        _flushTime=timeout_ms;
     }
 
     void Process::set_buffer_size(size_t size){
@@ -444,10 +450,21 @@ namespace process{
         _stderr.set_buffer_size(size);
     }
 
-    void Process::close(){
-        _stdin.close();
-        _stdout.close();
-        _stderr.close();
+    void Process::close(PipeType type){
+        if(type==PIPE){
+            _stdin.close();
+            _stdout.close();
+            _stderr.close();
+        }
+        else if(type==PIPE_IN){
+            _stdin.close();
+        }
+        else if(type==PIPE_OUT){
+            _stdout.close();
+        }
+        else if(type==PIPE_ERR){
+            _stderr.close();
+        }
     }
 
     bool Process::kill(int signal){
