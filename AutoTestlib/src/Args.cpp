@@ -105,7 +105,8 @@ namespace process{
                     state=IN_QUOTE;
                 }
                 else if(c=='\"'){
-                    current_arg+=c;  // 将双引号添加到参数中
+                    // 不将双引号添加到参数中
+                    // current_arg+=c;
                     state=IN_DQUOTE;
                 }
                 else if(std::isspace(c)){
@@ -136,10 +137,11 @@ namespace process{
                     escaped=true;  // 允许在双引号内转义
                 }
                 else{
-                    current_arg+=c;  // 将所有字符添加到参数中，包括双引号
                     if(c=='\"'&&!escaped){
                         state=NORMAL;
                     }
+                    // 在添加之前判断，不包括双引号
+                    if(c!='\"') current_arg+=c;
                 }
                 break;
             }
