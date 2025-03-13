@@ -26,7 +26,7 @@ TestSuite create_process_basic_tests() {
         args.add("Hello World");
         pc::Process proc("/bin/echo", args);
         proc.start();
-        std::string output = proc.read(pc::OUT);
+        std::string output = proc.read(pc::PIPE_OUT);
         proc.wait();
         assert_equal(output, std::string("Hello World\n"));
         assert_equal(proc.get_exit_code(), 0);
@@ -40,7 +40,8 @@ TestSuite create_process_basic_tests() {
         lsProc.set_block(false);
 
         // 使用empty方法检查是否有数据，设置200ms超时
-        bool hasData = !lsProc.empty(200); // 使用empty函数直接检查
+        lsProc.set_flush(200);
+        bool hasData=!lsProc.empty(); // 使用empty函数直接检查
 
         std::string line;
         if (hasData) {
@@ -56,7 +57,7 @@ TestSuite create_process_basic_tests() {
         pc::Process envProc("/usr/bin/env", pc::Args("env"));
         envProc.set_env("TEST_VAR", "test_value");
         envProc.start();
-        std::string output = envProc.read(pc::OUT);
+        std::string output = envProc.read(pc::PIPE_OUT);
         assert_true(output.find("TEST_VAR=test_value") != std::string::npos,
                    "未找到设置的环境变量");
         return "";

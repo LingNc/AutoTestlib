@@ -18,11 +18,18 @@ int main(int argc, char** argv) {
 
     // 创建测试管理器
     TestManager manager;
+    // 设置最大参数数量
+    size_t max_args=4;
 
     // 转换参数表
-    std::vector<std::string> args;
-    for (int i = 0; i < argc; ++i) {
-        args.push_back(argv[i]);
+    std::vector<std::string> args(max_args,"");
+    if(argc>4){
+        std::cerr << "参数过多，最多支持"+std::to_string(max_args)+"个参数" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    for(int i=0; i<argc; ++i){
+        args[i]=argv[i];
     }
 
     // 根据命令行参数选择要运行的测试
@@ -39,15 +46,10 @@ int main(int argc, char** argv) {
     }
 
     if(run_process){
-        bool run_basic=false,
-             run_advanced=false,
-             run_complex=false;
         bool run_all_process=(argc<3)||run_all||(args[2]=="all");
-        if(argc==3){
-            run_basic=(args[2]=="basic");
-            run_advanced=(args[2]=="advanced");
-            run_complex=(args[2]=="complex");
-        }
+        bool run_basic=(args[2]=="basic");
+        bool run_advanced=(args[2]=="advanced");
+        bool run_complex=(args[2]=="complex");
 
         if(run_basic||run_all_process){
             manager.add_suite(create_process_basic_tests());

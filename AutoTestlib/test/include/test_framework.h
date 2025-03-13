@@ -51,7 +51,7 @@ public:
                 std::cout << "✓ [" << test.name << "] 通过! (" << duration << "ms)" << std::endl;
                 passed++;
                 if (!info.empty()) {
-                    std::cout << "  提示: " << info << std::endl;
+                    std::cout << "  提示: \n" << info << std::endl;
                 }
             }
             catch(const std::exception &e){
@@ -139,8 +139,21 @@ inline void assert_true(bool condition, const std::string& message = "断言失�
 }
 
 inline void assert_equal(const std::string& actual, const std::string& expected, const std::string& message = "值不相等") {
-    if (actual != expected) {
-        throw std::runtime_error(message + "\n  期望: '" + expected + "'\n  实际: '" + actual + "'");
+    if(actual!=expected){
+        // 找到两个串第一个不相等的字符附近前后50个字符的字符串
+        size_t pos=0;
+        while(pos<actual.size()&&pos<expected.size()&&actual[pos]==expected[pos]){
+            pos++;
+        }
+        size_t start=(pos>2)?pos-2:0;
+        size_t end=(pos+48<expected.size())?pos+48:expected.size();
+        std::string actual_sub=actual.substr(start,end-start);
+        std::string expected_sub=expected.substr(start,end-start);
+        std::string res_message=message+"\n  期望: '"+expected_sub+"'\n  实际: '"+actual_sub+"'";
+        if(actual.size()>50||expected.size()>50){
+            res_message+="\n  实际字符串过长，显示前后50个字符";
+        }
+        throw std::runtime_error(res_message);
     }
 }
 

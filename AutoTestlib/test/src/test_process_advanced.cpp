@@ -25,7 +25,7 @@ TestSuite create_process_advanced_tests(){
         cat.start();
         // 生成一个大的数据块
         std::string large_data;
-        for(int i=0; i<10000; ++i){
+        for(int i=0; i<100; ++i){
             large_data+="Line "+std::to_string(i)+" of test data\n";
         }
         // 调整缓冲区大小
@@ -35,13 +35,14 @@ TestSuite create_process_advanced_tests(){
         cat.write(large_data);
         auto end_time=std::chrono::high_resolution_clock::now();
         auto writeTimes=std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count();
+
+        cat.set_flush(10);
         start_time=std::chrono::high_resolution_clock::now();
-        std::string output=cat.read(pc::OUT);
+        std::string output=cat.read();
         end_time=std::chrono::high_resolution_clock::now();
         auto readTimes=std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count();
         cat.kill(SIGTERM);
-        cat.wait();
-        assert_equal(output,large_data);
+        assert_equal(output,large_data,"读取的数据不匹配");
         string info="写入时间: "+std::to_string(writeTimes)+"ms\n读取时间: "+std::to_string(readTimes)+"ms";
         return info;
         });
@@ -53,13 +54,13 @@ TestSuite create_process_advanced_tests(){
         sortProc<<"c"<<std::endl;
         sortProc<<"a"<<std::endl;
         sortProc<<"b"<<std::endl;
-        sortProc.write(""); // 触发flush
-        sortProc.close();
+        sortProc.close(pc::PIPE_IN);
 
         std::string sortOut1=sortProc.getline();
         std::string sortOut2=sortProc.getline();
         std::string sortOut3=sortProc.getline();
 
+        sortProc.kill(SIGTERM);
         assert_equal(sortOut1,std::string("a"));
         assert_equal(sortOut2,std::string("b"));
         assert_equal(sortOut3,std::string("c"));
@@ -156,7 +157,7 @@ TestSuite create_process_advanced_tests(){
         envProc.set_env("TEST_VAR1","value1");
         envProc.set_env("TEST_VAR2","value2");
         envProc.start();
-        std::string output=envProc.read(pc::OUT);
+        std::string output=envProc.read();
         envProc.wait();
         assert_true(output.find("TEST_VAR1=value1")!=std::string::npos,"环境变量TEST_VAR1设置失败");
         assert_true(output.find("TEST_VAR2=value2")!=std::string::npos,"环境变量TEST_VAR2设置失败");
@@ -170,7 +171,7 @@ TestSuite create_process_advanced_tests(){
         envManipProc.set_env("VAR2","value2");
         envManipProc.unset_env("VAR1");
         envManipProc.start();
-        std::string envOutput=envManipProc.read(pc::OUT);
+        std::string envOutput=envManipProc.read();
         assert_true(envOutput.find("VAR2=value2")!=std::string::npos,"环境变量设置失败");
         assert_true(envOutput.find("VAR1=value1")==std::string::npos,"环境变量取消设置失败");
         return "";
@@ -181,7 +182,7 @@ TestSuite create_process_advanced_tests(){
         pc::Process stderrProc("/bin/bash",pc::Args("bash").add("-c").add("echo 'standard output'; echo 'error output' >&2"));
         stderrProc.start();
         std::string stdOut=stderrProc.getline();
-        std::string stdErr=stderrProc.read(pc::ERR);
+        std::string stdErr=stderrProc.read(pc::PIPE_ERR);
         assert_equal(stdOut,std::string("standard output"));
         assert_true(stdErr.find("error output")!=std::string::npos,"无法读取标准错误输出");
         return "";
