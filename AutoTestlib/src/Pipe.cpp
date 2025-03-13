@@ -41,13 +41,12 @@ namespace process{
     }
     // 关闭管道
     void Pipe::close(){
-        if(is_closed(PIPE_READ)){
+        if(!is_closed(PIPE_READ)){
             ::close(_pipe[PIPE_READ]);
         }
-        if(is_closed(PIPE_WRITE)){
+        if(!is_closed(PIPE_WRITE)){
             ::close(_pipe[PIPE_WRITE]);
         }
-        _pipeType=PIPE_NO;
     }
     // 设置阻塞模式
     void Pipe::set_blocked(bool isblocked){
@@ -120,6 +119,7 @@ namespace process{
         if(flags==-1&&errno==EBADF){
             return true; // 管道已关闭
         }
+        return false;
     }
     // 获取管道句柄
     Handle Pipe::get_handle(){
@@ -201,34 +201,52 @@ namespace process{
         if(_pipeType==PIPE_NO){
             throw std::runtime_error("管道未被初始化为特定模式！");
         }
+        if(is_closed()){
+            return "";
+        }
         char *buffer=new char[_bufferSize];
         if(buffer==nullptr){
             throw std::runtime_error("管道缓存区读取内存分配失败");
         }
         std::string result;
 
-        while(true){
-            if(_isBlocked==false){
+        // 记录原始阻塞状态
+        bool original_blocked=_isBlocked;
+        try{
+            // 临时设置为非阻塞模式
+            if(original_blocked){
+                set_blocked(false);
+            }
+            while(true){
+                // 无论什么模式，都先检查是否有数据
                 if(empty(timeout_ms)){
                     break;
                 }
-            }
-            int bytes_read=read(buffer,_bufferSize-1);
-            if(bytes_read<0){
-                if(errno==EAGAIN||errno==EWOULDBLOCK){
-                    // 没有更多数据了
-                    break;
+                int bytes_read=read(buffer,_bufferSize-1);
+                if(bytes_read<=0){
+                    if(errno==EAGAIN||errno==EWOULDBLOCK){
+                        continue; // 尝试再次读取
+                    }
+                    break; // 其他错误或管道已关闭
                 }
-                throw std::runtime_error("Failed to read from pipe: "+std::string(strerror(errno)));
+                buffer[bytes_read]='\0';
+                result+=buffer;
             }
-            else if(bytes_read==0){
-                // 管道已关闭
-                break;
+            // 恢复原始阻塞状态
+            if(original_blocked){
+                set_blocked(true);
             }
-
-            buffer[bytes_read]='\0';
-            result+=buffer;
         }
+        catch(...){
+            // 恢复原始阻塞状态
+            if(original_blocked){
+                set_blocked(true);
+            }
+            delete[] buffer;
+            throw;
+        }
+
+        delete[] buffer;
         return result;
     }
 
