@@ -82,8 +82,6 @@ namespace process{
     // 进程类
     // 程序状态
     enum Status{ RUNNING,STOP,ERROR,TIMEOUT,MEMOUT,RE };
-    // 输出管道选择
-    enum TypeOut{ OUT,ERR };
     class Process{
         // 计时器
         Timer _timer;
@@ -129,9 +127,9 @@ namespace process{
         // 开始计时是否超时
         void start_timer();
         // 读字符
-        char read_char(TypeOut type);
+        char read_char(PipeType type);
         // 读取一行
-        string read_line(TypeOut type,char delimiter='\n');
+        string read_line(PipeType type,char delimiter='\n');
     public:
         // 构造函数
         Process();
@@ -146,11 +144,13 @@ namespace process{
         // 获得退出状态
         int get_exit_code() const;
         // 读取数据
-        string read(TypeOut type=OUT,size_t nbytes=0);
+        string read(PipeType type=PIPE_OUT,size_t nbytes=0);
         // 写入数据
         Process &write(const string &data);
         // 读一行
         string getline(char delimiter='\n');
+        // 读错误
+        string geterr(size_t nbytes=0);
         // 读字符
         char getchar();
         // 刷新输入
@@ -160,7 +160,7 @@ namespace process{
         // 终止进程
         bool kill(int signal=SIGKILL);
         // 流是否为空
-        bool empty(int timeout_ms=0);
+        bool empty(PipeType type=PIPE_OUT);
         // 设置阻塞状态
         void set_block(bool status);
         // 设置非阻塞超时时间
@@ -200,7 +200,7 @@ namespace process{
         template<typename T>
         Process &operator>>(T &data){
             std::stringstream ss;
-            ss<<read_line(OUT);
+            ss<<read_line(PIPE_OUT);
             ss>>data;
             return *this;
         }

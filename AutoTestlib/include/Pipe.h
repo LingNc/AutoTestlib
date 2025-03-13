@@ -29,6 +29,8 @@ namespace process{
         int _isBlocked=true;
         // 缓冲区大小
         int _bufferSize=KB(4);
+        // 刷新时间
+        int _flushTime=100;
     public:
         // 构造函数,创建管道
         Pipe();
@@ -42,6 +44,8 @@ namespace process{
         void recreate();
         // 设置管道阻塞模式
         void set_blocked(bool isblocked);
+        // 设置非缓冲检查时间
+        void set_flush(size_t timeout_ms);
         // 重定向到输入输出
         void redirect(Handle pipe);
         // 是否是阻塞模式
@@ -53,7 +57,7 @@ namespace process{
         // 获取管道类型
         bool get_type();
         // 检查是否有数据可读
-        bool empty(int timeout_ms=0);
+        bool empty();
         // 管道是否关闭
         bool is_closed(PipeType type=PIPE);
         // 获取管道句柄
@@ -66,11 +70,11 @@ namespace process{
         // 读取一个字符
         char read_char();
         // 读取一行数据
-        std::string read_line(char delimiter='\n',int timeout_ms=100);
-        // 读取所有可用数据
-        std::string read_all(int timeout_ms=100);
+        std::string read_line(char delimiter='\n');
         // 读取指定大小的数据
-        std::string read_bytes(size_t bytes,int timeout_ms=100);
+        std::string read_bytes(size_t bytes);
+        // 读取所有可用数据
+        std::string read_all(size_t nbytes=0);
         // 写入字符串
         void write(const std::string &data);
         // 重载运算符

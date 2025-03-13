@@ -95,8 +95,7 @@ namespace process{
 
         for(char c:command_line){
             if(escaped){
-                // 处理转义字符 - 把原始的反斜杠和字符都添加到参数中
-                current_arg+='\\';
+                // 处理转义字符
                 current_arg+=c;
                 escaped=false;
                 continue;
@@ -325,8 +324,15 @@ namespace process{
     }
 
     void Process::start(){
-        init_pipe();
-        launch(_path.c_str(),_args.data());
+        try{
+            init_pipe();
+            launch(_path.c_str(),_args.data());
+        }
+        catch(const std::exception &e){
+            // 记录错误并重新抛出
+            std::cerr<<"Process启动失败: "<<e.what()<<std::endl;
+            throw;
+        }
     }
 
     JudgeCode Process::wait(){
@@ -395,41 +401,50 @@ namespace process{
         return *this;
     }
 
-    string Process::read(TypeOut type,size_t nbytes){
-        Pipe &pipe=(type==OUT)?_stdout:_stderr;
-        if(nbytes==0){
-            // 读取所有可用数据
-            return pipe.read_all(_flushTime);
-        }
-        else{
-            // 读取指定大小的数据
-            return pipe.read_bytes(nbytes,_flushTime);
-        }
+    string Process::read(PipeType type,size_t nbytes){
+        Pipe &pipe=(type==PIPE_OUT)?_stdout:_stderr;
+        return pipe.read_all(nbytes);
     }
 
-    char Process::read_char(TypeOut type){
-        Pipe &pipe=(type==OUT)?_stdout:_stderr;
+    char Process::read_char(PipeType type){
+        Pipe &pipe=(type==PIPE_OUT)?_stdout:_stderr;
         // 利用Pipe类的read_char方法
         return pipe.read_char();
     }
 
-    string Process::read_line(TypeOut type,char delimiter){
-        Pipe &pipe=(type==OUT)?_stdout:_stderr;
+    string Process::read_line(PipeType type,char delimiter){
+        Pipe &pipe=(type==PIPE_OUT)?_stdout:_stderr;
         // 利用Pipe类的read_line方法
-        string line=pipe.read_line(delimiter,_flushTime);
+        string line=pipe.read_line(delimiter);
         _empty=line.empty();
         return line;
     }
     string Process::getline(char delimiter){
-        return read_line(OUT,delimiter);
+        return read_line(PIPE_OUT,delimiter);
     }
-
+    string Process::geterr(size_t nbytes){
+        if(nbytes==0){
+            // 行读
+            return read_line(PIPE_ERR);
+        }
+        // 字节读
+        return read(PIPE_ERR,nbytes);
+    }
     char Process::getchar(){
-        return read_char(OUT);
+        return read_char(PIPE_OUT);
     }
 
-    bool Process::empty(int timeout_ms){
-        return _stdout.empty(timeout_ms);
+    bool Process::empty(PipeType type){
+        // 检查管道数据是否为空
+        if(type==PIPE_OUT){
+            return _stdout.empty();
+        }
+        else if(type==PIPE_ERR){
+            return _stderr.empty();
+        }
+        else{
+            throw std::invalid_argument(name+":无法检测对应管道是非为空！");
+        }
     }
 
     void Process::set_block(bool status){

@@ -60,6 +60,13 @@ namespace process{
             fcntl(_pipe[_pipeType],F_SETFL,_flags|O_NONBLOCK);
         }
     }
+    // 设置非缓冲检查时间
+    void Pipe::set_flush(size_t timeout_ms){
+        if(timeout_ms<=0){
+            throw std::invalid_argument("非缓冲检查时间必须大于 0");
+        }
+        _flushTime=timeout_ms;
+    }
     // 重定向到输入输出
     void Pipe::redirect(Handle pipe){
         if(_pipe[_pipeType]!=-1){  // 修正: 只有管道打开时才能重定向
@@ -94,7 +101,7 @@ namespace process{
         return _pipeType;
     }
     // 是否为空
-    bool Pipe::empty(int timeout_ms){
+    bool Pipe::empty(){
         if(is_closed()){
             return true; // 管道未打开，认为是空的
         }
@@ -103,7 +110,7 @@ namespace process{
         pfd.fd=_pipe[_pipeType];
         pfd.events=POLLIN;
 
-        int ret=poll(&pfd,1,timeout_ms);
+        int ret=poll(&pfd,1,_flushTime);
 
         if(ret<0){
             throw std::runtime_error("Failed to poll pipe: "+std::string(strerror(errno)));
@@ -161,7 +168,7 @@ namespace process{
     }
 
     // 新增方法: 读取一行数据
-    std::string Pipe::read_line(char delimiter,int timeout_ms){
+    std::string Pipe::read_line(char delimiter){
         if(_pipeType==PIPE_NO){
             throw std::runtime_error("管道未被初始化为特定模式！");
         }
@@ -169,7 +176,7 @@ namespace process{
         char c;
 
         while(true){
-            if(_isBlocked==false&&empty(timeout_ms)){
+            if(_isBlocked==false&&empty()){
                 // 如果非阻塞模式下没有数据可读，直接返回空字符串
                 return "";
             }
@@ -197,7 +204,8 @@ namespace process{
     }
 
     // 新增方法: 读取所有可用数据
-    std::string Pipe::read_all(int timeout_ms){
+    std::string Pipe::read_all(size_t nbytes){
+        if(nbytes!=0) return read_bytes(nbytes);
         if(_pipeType==PIPE_NO){
             throw std::runtime_error("管道未被初始化为特定模式！");
         }
@@ -219,7 +227,7 @@ namespace process{
             }
             while(true){
                 // 无论什么模式，都先检查是否有数据
-                if(empty(timeout_ms)){
+                if(empty()){
                     break;
                 }
                 int bytes_read=read(buffer,_bufferSize-1);
@@ -251,7 +259,7 @@ namespace process{
     }
 
     // 实现
-    std::string Pipe::read_bytes(size_t bytes,int timeout_ms){
+    std::string Pipe::read_bytes(size_t bytes){
         if(_pipeType==PIPE_NO){
             throw std::runtime_error("管道未被初始化为特定模式！");
         }
@@ -263,7 +271,7 @@ namespace process{
 
         while(total_read<bytes){
             // 检查是否有数据可读
-            if(_isBlocked==false&&empty(timeout_ms)){
+            if(_isBlocked==false&&empty()){
                 break; // 非阻塞模式下没有更多数据
             }
 
