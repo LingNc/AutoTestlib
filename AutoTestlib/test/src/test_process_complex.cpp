@@ -15,8 +15,9 @@ TestSuite create_process_complex_tests() {
         complexArgs.parse("bash -c \"echo \\\"Hello, World!\\\"\"");
         pc::Process complexProc("/bin/bash", complexArgs);
         complexProc.start();
-        std::string complexOutput = complexProc.getline();
-        assert_equal(complexOutput, std::string("Hello, World!"));
+        std::string complexOutput=complexProc.getline();
+        std::cerr<<complexProc.geterr();
+        assert_equal(complexOutput,std::string("Hello, World!"));
         return "";
     });
 
@@ -26,8 +27,9 @@ TestSuite create_process_complex_tests() {
         shellArgs.parse("bash -c \"echo 'Path: /usr/bin with\\ space'\"");
         pc::Process shellProc("/bin/bash", shellArgs);
         shellProc.start();
-        std::string shellOutput = shellProc.getline();
-        assert_equal(shellOutput, std::string("Path: /usr/bin with space"));
+        std::string shellOutput=shellProc.getline();
+        std::cerr<<shellProc.geterr();
+        assert_equal(shellOutput,std::string("Path: /usr/bin with space"));
         return "";
     });
 
@@ -37,8 +39,9 @@ TestSuite create_process_complex_tests() {
         nestedArgs.parse("bash -c \"bash -c \\\"echo nested command\\\"\"");
         pc::Process nestedProc("/bin/bash", nestedArgs);
         nestedProc.start();
-        std::string nestedOutput = nestedProc.getline();
-        assert_equal(nestedOutput, std::string("nested command"));
+        std::string nestedOutput=nestedProc.getline();
+        std::cerr<<nestedProc.geterr();
+        assert_equal(nestedOutput,std::string("nested command"));
         return "";
     });
 
@@ -53,8 +56,9 @@ TestSuite create_process_complex_tests() {
         grepComplexProc << "pattern advanced test" << std::endl;
         grepComplexProc.close();
         std::string grepComplexOut1 = grepComplexProc.getline();
-        std::string grepComplexOut2 = grepComplexProc.getline();
-        assert_equal(grepComplexOut1, std::string("\"pattern test\""));
+        std::string grepComplexOut2=grepComplexProc.getline();
+        std::cerr<<grepComplexProc.geterr();
+        assert_equal(grepComplexOut1,std::string("\"pattern test\""));
         assert_equal(grepComplexOut2, std::string("pattern advanced test"));
         return "";
     });
@@ -66,8 +70,9 @@ TestSuite create_process_complex_tests() {
         dynamicArgs.parse("bash -c \"" + dynamicCmd + "\"");
         pc::Process dynamicProc("/bin/bash", dynamicArgs);
         dynamicProc.start();
-        std::string dynamicOutput = dynamicProc.getline();
-        assert_equal(dynamicOutput, std::string("Dynamic: \"quoted\" content"));
+        std::string dynamicOutput=dynamicProc.getline();
+        std::cerr<<dynamicProc.geterr();
+        assert_equal(dynamicOutput,std::string("Dynamic: \"quoted\" content"));
         return "";
     });
 
@@ -80,8 +85,9 @@ TestSuite create_process_complex_tests() {
         redirectArgs.parse("bash -c \"cat < /tmp/test_redirect.txt\"");
         pc::Process redirectProc("/bin/bash", redirectArgs);
         redirectProc.start();
-        std::string redirectOutput = redirectProc.getline();
-        assert_equal(redirectOutput, std::string("redirect test"));
+        std::string redirectOutput=redirectProc.getline();
+        std::cerr<<redirectProc.geterr();
+        assert_equal(redirectOutput,std::string("redirect test"));
 
         // 清理临时文件
         system("rm -f /tmp/test_redirect.txt");
@@ -115,7 +121,8 @@ TestSuite create_process_complex_tests() {
         std::string output1;
 
         // 使用empty方法等待数据可用，设置最多100ms超时
-        if (!mixedProc.empty(100)) {
+        mixedProc.set_flush(100);
+        if(!mixedProc.empty()){
             output1 = mixedProc.getline();
         }
         else {
@@ -127,7 +134,7 @@ TestSuite create_process_complex_tests() {
         mixedProc.set_block(true);
         mixedProc << "line 2" << std::endl;
         std::string output2 = mixedProc.getline();
-
+        std::cerr << mixedProc.geterr();
         // 检测两种模式的输出
         assert_equal(output1, std::string("line 1"));
         assert_equal(output2, std::string("line 2"));

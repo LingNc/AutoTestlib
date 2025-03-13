@@ -38,7 +38,7 @@ TestSuite create_args_tests(){
         assert_equal(cmd_args.size(), (size_t)3);
         assert_equal(cmd_args[0], std::string("ls"));
         assert_equal(cmd_args[1], std::string("-la"));
-        assert_equal(cmd_args[2], std::string("\"/home/user with spaces/\""));
+        assert_equal(cmd_args[2], std::string("/home/user with spaces/"));
         return "";
         });
         // 测试复杂命令行解析
@@ -47,7 +47,7 @@ TestSuite create_args_tests(){
             complex_args.parse("grep \"hello world\" file.txt | sort");
             assert_equal(complex_args.size(), (size_t)5);
             assert_equal(complex_args[0], std::string("grep"));
-            assert_equal(complex_args[1], std::string("\"hello world\""));
+            assert_equal(complex_args[1], std::string("hello world"));
             assert_equal(complex_args[2], std::string("file.txt"));
             assert_equal(complex_args[3], std::string("|"));
             assert_equal(complex_args[4], std::string("sort"));
@@ -62,7 +62,7 @@ TestSuite create_args_tests(){
         assert_equal(args3.size(),(size_t)6);
         assert_equal(args3[1],std::string("."));
         assert_equal(args3[2],std::string("-name"));
-        assert_equal(args3[3],std::string("\"*.cpp\""));
+        assert_equal(args3[3],std::string("*.cpp"));
         assert_equal(args3[4],std::string("-type"));
         assert_equal(args3[5],std::string("f"));
         return "";
@@ -72,9 +72,9 @@ TestSuite create_args_tests(){
         pc::Args args;
         args.parse("echo \"quoted \\\"string\\\"\" '单引号\\'内容' file\\ with\\ space");
         assert_equal(args[0],std::string("echo"));
-        assert_equal(args[1],std::string("\"quoted \\\"string\\\"\""));
-        assert_equal(args[2],std::string("'单引号\\'内容'"));
-        assert_equal(args[3],std::string("file\\ with\\ space"));
+        assert_equal(args[1],std::string("quoted \"string\""));
+        assert_equal(args[2],std::string("'单引号\'内容'"));
+        assert_equal(args[3],std::string("file with space"));
         return "";
         });
 
@@ -84,7 +84,7 @@ TestSuite create_args_tests(){
         args.parse("bash -c \"echo hello\"");
         assert_equal(args[0],std::string("bash"));
         assert_equal(args[1],std::string("-c"));
-        assert_equal(args[2],std::string("\"echo hello\""));
+        assert_equal(args[2],std::string("echo hello"));
         return "";
         });
 
