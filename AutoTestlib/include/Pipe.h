@@ -51,7 +51,7 @@ namespace process{
         // 是否是阻塞模式
         bool is_blocked();
         // 设置管道类型
-        void set_type(bool type);
+        void set_type(bool type,bool autoClose=true);
         // 设置缓冲区大小
         void set_buffer_size(int size);
         // 获取管道类型

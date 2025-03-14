@@ -64,7 +64,7 @@ Test_obj_files = $(patsubst $(Test_src_dir)/%.cpp,$(Test_obj_dir)/%.o,$(Test_src
 
 # 构建测试程序
 .PHONY: test
-test: disassembly $(Test)
+test: $(Test)
 	@echo "构建 $(Test) 成功!"
 
 # 链接测试文件

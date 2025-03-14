@@ -83,9 +83,12 @@ namespace process{
         return _isBlocked;
     }
     // 设置管道类型
-    void Pipe::set_type(bool type){
+    void Pipe::set_type(bool type,bool autoClose){
         _pipeType=type;
-        ::close(_pipe[!_pipeType]);
+        if(autoClose){
+            // 关闭另一个管道
+            ::close(_pipe[!_pipeType]);
+        }
     }
     // 设置缓冲区大小
     void Pipe::set_buffer_size(int size){
@@ -140,11 +143,17 @@ namespace process{
     }
     // 读取指定大小的数据
     ssize_t Pipe::read(void *buffer,size_t size){
-        return ::read(_pipe[_pipeType],buffer,size);
+        if(is_closed(PIPE_READ)){
+            throw std::runtime_error("管道已关闭，无法读取数据");
+        }
+        return ::read(_pipe[PIPE_READ],buffer,size);
     }
     // 写入指定大小的数据
     ssize_t Pipe::write(const void *data,size_t size){
-        return ::write(_pipe[_pipeType],data,size);
+        if(is_closed(PIPE_WRITE)){
+            throw std::runtime_error("管道已关闭，无法写入数据");
+        }
+        return ::write(_pipe[PIPE_WRITE],data,size);
     }
 
     // 新增方法: 读取一个字符
@@ -163,7 +172,6 @@ namespace process{
         else if(bytes_read==0){
             return '\0'; // 管道已关闭
         }
-
         return c;
     }
 
