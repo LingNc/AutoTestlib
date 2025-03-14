@@ -86,8 +86,9 @@ namespace process{
             _child_message<<"Start"<<std::endl;
 
             // 运行子程序
-            execvp(arg,args);
-            exit(EXIT_FAILURE);
+            if(execvp(arg,args)==-1){
+                exit(EXIT_FAILURE);
+            }
         }
         else if(_pid<0){
             _status=ERROR;
