@@ -145,7 +145,7 @@ namespace process{
         }
     }
 
-    JudgeCode Process::wait(){
+    acm::JudgeCode Process::wait(){
         int status;
         waitpid(_pid,&status,0);
         _exit_code=status;
@@ -153,17 +153,17 @@ namespace process{
 
         // 首先检查是否已经标记为超时
         if(_status==TIMEOUT){
-            return TimeLimitEXceeded;
+            return acm::TimeLimitEXceeded;
         }
         else if(WIFEXITED(status)){
             int temp=WEXITSTATUS(status);
             if(temp==0){
                 _status=STOP;
-                return Waiting;
+                return acm::Waiting;
             }
             else{
                 _status=ERROR;
-                return Waiting;
+                return acm::Waiting;
             }
         }
         else if(WIFSIGNALED(status)){
@@ -171,25 +171,25 @@ namespace process{
             _status=RE;
             switch(signal){
             case SIGSEGV:
-                return RuntimeError;
+                return acm::RuntimeError;
                 // 修复逻辑运算符错误，使用单独的case
             case SIGABRT:
-                return MemoryLimitExceeded;
+                return acm::MemoryLimitExceeded;
             case SIGKILL:
                 // 如果已经标记为TIMEOUT，则返回超时错误
                 if(_status==TIMEOUT){
-                    return TimeLimitEXceeded;
+                    return acm::TimeLimitEXceeded;
                 }
-                return MemoryLimitExceeded;
+                return acm::MemoryLimitExceeded;
             case SIGFPE:
-                return FloatingPointError;
+                return acm::FloatingPointError;
             default:
-                return RuntimeError;
+                return acm::RuntimeError;
             }
         }
         else{
             _status=RE;
-            return RuntimeError;
+            return acm::RuntimeError;
         }
         // 停止计时
         if(_status!=RUNNING){

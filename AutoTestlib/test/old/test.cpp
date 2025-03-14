@@ -158,12 +158,12 @@ void test_process() {
     timeoutProc.set_timeout(100); // 100毫秒超时
     auto startTime = std::chrono::steady_clock::now();
     timeoutProc.start();
-    JudgeCode result = timeoutProc.wait();
+    acm::JudgeCode result = timeoutProc.wait();
     auto endTime = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
     report_test("Process超时设置",
         duration.count() < 1500 && // 确保没有等待完整的2秒
-        result == JudgeCode::TimeLimitEXceeded);
+        result == acm::JudgeCode::acm::TimeLimitEXceeded);
 
     // 新增测试：获取字符
     pc::Process echoCharProc("/bin/echo", pc::Args("echo").add("ABC"));
@@ -201,17 +201,17 @@ void test_process() {
     pc::Process memProc("/usr/bin/python3", pc::Args("python3").add("-c").add("import numpy as np; a = np.ones((100, 100))"));
     memProc.set_memout(10); // 10MB内存限制
     memProc.start();
-    JudgeCode memResult = memProc.wait();
-    report_test("Process无内存超限", memResult != JudgeCode::MemoryLimitExceeded);
+    acm::JudgeCode memResult = memProc.wait();
+    report_test("Process无内存超限", memResult != acm::JudgeCode::acm::MemoryLimitExceeded);
 
     // 新增测试：严格内存限制 (创建一个超大数组应该会超出内存限制)
     pc::Process memLimitProc("/usr/bin/python3", pc::Args("python3").add("-c").add("import numpy as np; a = np.ones((5000, 5000))"));
     memLimitProc.set_memout(1); // 1MB内存限制，应该会超出
     memLimitProc.start();
-    JudgeCode memLimitResult = memLimitProc.wait();
+    acm::JudgeCode memLimitResult = memLimitProc.wait();
     report_test("Process内存限制触发",
-        memLimitResult==JudgeCode::MemoryLimitExceeded);// ||
-                // memLimitResult == JudgeCode::RuntimeError); // 可能触发RuntimeError或MemoryLimitExceeded
+        memLimitResult==acm::JudgeCode::acm::MemoryLimitExceeded);// ||
+                // memLimitResult == acm::JudgeCode::acm::RuntimeError); // 可能触发acm::RuntimeError或acm::MemoryLimitExceeded
 
     // 新增测试：环境变量操作
     pc::Process envManipProc("/usr/bin/env", pc::Args("env"));
@@ -248,16 +248,16 @@ void test_process() {
     cancelTimeoutProc.set_timeout(1000);
     cancelTimeoutProc.cancel_timeout();
     cancelTimeoutProc.start();
-    JudgeCode cancelResult = cancelTimeoutProc.wait();
-    report_test("Process取消超时", cancelResult == JudgeCode::Waiting);
+    acm::JudgeCode cancelResult = cancelTimeoutProc.wait();
+    report_test("Process取消超时", cancelResult == acm::JudgeCode::acm::Waiting);
 
     // 新增测试：取消内存限制
     pc::Process cancelMemProc("/usr/bin/python3", pc::Args("python3").add("-c").add("import numpy as np; a = np.ones((1000, 1000))"));
     cancelMemProc.set_memout(1);
     cancelMemProc.cancel_memout();
     cancelMemProc.start();
-    JudgeCode cancelMemResult = cancelMemProc.wait();
-    report_test("Process取消内存限制", cancelMemResult == JudgeCode::Waiting);
+    acm::JudgeCode cancelMemResult = cancelMemProc.wait();
+    report_test("Process取消内存限制", cancelMemResult == acm::JudgeCode::acm::Waiting);
 
     // 新增测试：清除所有环境变量
     pc::Process clearEnvProc("/usr/bin/env", pc::Args("env"));
@@ -303,14 +303,14 @@ void test_process() {
     // 新增测试：运行时错误检测
     pc::Process segfaultProc("/bin/bash", pc::Args("bash").add("-c").add("kill -SIGSEGV $$"));
     segfaultProc.start();
-    JudgeCode segResult = segfaultProc.wait();
-    report_test("Process段错误检测", segResult == JudgeCode::RuntimeError);
+    acm::JudgeCode segResult = segfaultProc.wait();
+    report_test("Process段错误检测", segResult == acm::JudgeCode::acm::RuntimeError);
 
     // 新增测试：浮点错误检测
     pc::Process fpeProc("/bin/bash", pc::Args("bash").add("-c").add("kill -SIGFPE $$"));
     fpeProc.start();
-    JudgeCode fpeResult = fpeProc.wait();
-    report_test("Process浮点错误检测", fpeResult == JudgeCode::FloatingPointError);
+    acm::JudgeCode fpeResult = fpeProc.wait();
+    report_test("Process浮点错误检测", fpeResult == acm::JudgeCode::acm::FloatingPointError);
 
     // 新增测试：Process类与Args类的复杂结合
     std::cout << "\n--- Process与Args复杂交互测试 ---" << std::endl;
@@ -424,12 +424,12 @@ void test_judge_sign() {
     std::cout << "\n===== 测试 JudgeSign =====" << std::endl;
 
     // 验证枚举值的正确性
-    report_test("Waiting枚举值", JudgeCode::Waiting == 0);
-    report_test("Accept枚举值", JudgeCode::Accept == 3);
-    report_test("CompilationError枚举值", JudgeCode::CompilationError == 4);
-    report_test("WrongAnswer枚举值", JudgeCode::WrongAnswer == 5);
-    report_test("TimeLimitEXceeded枚举值", JudgeCode::TimeLimitEXceeded == 6);
-    report_test("RuntimeError枚举值", JudgeCode::RuntimeError == 10);
+    report_test("acm::Waiting枚举值", acm::JudgeCode::acm::Waiting == 0);
+    report_test("Accept枚举值", acm::JudgeCode::Accept == 3);
+    report_test("acm::CompilationError枚举值", acm::JudgeCode::acm::CompilationError == 4);
+    report_test("acm::WrongAnswer枚举值", acm::JudgeCode::acm::WrongAnswer == 5);
+    report_test("acm::TimeLimitEXceeded枚举值", acm::JudgeCode::acm::TimeLimitEXceeded == 6);
+    report_test("acm::RuntimeError枚举值", acm::JudgeCode::acm::RuntimeError == 10);
 }
 
 // 主测试函数

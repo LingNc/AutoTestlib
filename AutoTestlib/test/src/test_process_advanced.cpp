@@ -82,8 +82,8 @@ TestSuite create_process_advanced_tests(){
         pc::Process memProc("/usr/bin/python3",pc::Args("python3").add("-c").add("import numpy as np; a = np.ones((100, 100))"));
         memProc.set_memout(10); // 10MB内存限制
         memProc.start();
-        JudgeCode memResult=memProc.wait();
-        assert_true(memResult!=JudgeCode::MemoryLimitExceeded,"小内存程序不应超出内存限制");
+        acm::JudgeCode memResult=memProc.wait();
+        assert_true(memResult!=acm::JudgeCode::acm::MemoryLimitExceeded,"小内存程序不应超出内存限制");
         return "";
         });
 
@@ -92,10 +92,10 @@ TestSuite create_process_advanced_tests(){
         pc::Process memLimitProc("/usr/bin/python3",pc::Args("python3").add("-c").add("import numpy as np; a = np.ones((5000, 5000))"));
         memLimitProc.set_memout(1); // 1MB内存限制，应该会超出
         memLimitProc.start();
-        JudgeCode memLimitResult=memLimitProc.wait();
-        // 可能触发MemoryLimitExceeded或RuntimeError
-        assert_true(memLimitResult==JudgeCode::MemoryLimitExceeded||
-            memLimitResult==JudgeCode::RuntimeError,
+        acm::JudgeCode memLimitResult=memLimitProc.wait();
+        // 可能触发acm::MemoryLimitExceeded或acm::RuntimeError
+        assert_true(memLimitResult==acm::JudgeCode::acm::MemoryLimitExceeded||
+            memLimitResult==acm::JudgeCode::acm::RuntimeError,
             "大内存程序应触发内存限制");
         return "";
         });
@@ -140,13 +140,13 @@ TestSuite create_process_advanced_tests(){
         pc::Process proc("./memtest",args);
         proc.set_memout(50); // 50MB限制
         proc.start();
-        JudgeCode result=proc.wait();
+        acm::JudgeCode result=proc.wait();
 
         // 清理
         pc::Process rm("/bin/rm",pc::Args("rm").add("-f").add("memtest").add("memtest.c"));
         rm.start();
         rm.wait();
-        assert_true(result==JudgeCode::MemoryLimitExceeded||proc.get_exit_code()!=0,
+        assert_true(result==acm::JudgeCode::acm::MemoryLimitExceeded||proc.get_exit_code()!=0,
             "内存限制应该阻止程序正常执行");
         return "";
         });
@@ -194,8 +194,8 @@ TestSuite create_process_advanced_tests(){
         cancelTimeoutProc.set_timeout(1000);
         cancelTimeoutProc.cancel_timeout();
         cancelTimeoutProc.start();
-        JudgeCode cancelResult=cancelTimeoutProc.wait();
-        assert_equal(cancelResult,JudgeCode::Waiting,"取消超时设置失败");
+        acm::JudgeCode cancelResult=cancelTimeoutProc.wait();
+        assert_equal(cancelResult,acm::JudgeCode::acm::Waiting,"取消超时设置失败");
         return "";
         });
 
@@ -205,8 +205,8 @@ TestSuite create_process_advanced_tests(){
         cancelMemProc.set_memout(1);
         cancelMemProc.cancel_memout();
         cancelMemProc.start();
-        JudgeCode cancelMemResult=cancelMemProc.wait();
-        assert_equal(cancelMemResult,JudgeCode::Waiting,"取消内存限制设置失败");
+        acm::JudgeCode cancelMemResult=cancelMemProc.wait();
+        assert_equal(cancelMemResult,acm::JudgeCode::acm::Waiting,"取消内存限制设置失败");
         return "";
         });
 

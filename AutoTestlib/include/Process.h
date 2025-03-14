@@ -48,7 +48,7 @@ namespace process{
         // 退出状态
         int _exit_code=-1;
         // 判断状态
-        JudgeCode _code=Waiting;
+        acm::JudgeCode _code=acm::Waiting;
         // 缓冲区大小
         int _buffer_size=4096;
         // 非阻塞超时
@@ -73,7 +73,7 @@ namespace process{
         // 启动子进程
         void start();
         // 等待子进程结束
-        JudgeCode wait();
+        acm::JudgeCode wait();
         // 获得退出状态
         int get_exit_code() const;
         // 读取数据

@@ -123,11 +123,11 @@ TestSuite create_process_basic_tests() {
         timeoutProc.set_timeout(20000); // 20000毫秒超时
         auto startTime = std::chrono::steady_clock::now();
         timeoutProc.start();
-        JudgeCode result = timeoutProc.wait();
+        acm::JudgeCode result = timeoutProc.wait();
         auto endTime = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
         assert_true(duration.count()<1010,"程序已经结束，但是计时未停止");
-        assert_equal(result,JudgeCode::Waiting);
+        assert_equal(result,acm::JudgeCode::acm::Waiting);
         return "";
     });
 
@@ -140,9 +140,9 @@ TestSuite create_process_basic_tests() {
         sleep_proc.set_timeout(1000);
         sleep_proc.start();
         // 等待进程结束
-        JudgeCode result = sleep_proc.wait();
+        acm::JudgeCode result = sleep_proc.wait();
         // 检查是否因为超时而终止
-        assert_equal(result, JudgeCode::TimeLimitEXceeded);
+        assert_equal(result, acm::JudgeCode::acm::TimeLimitEXceeded);
         return "";
     });
 

@@ -3,20 +3,21 @@
 
 #include "Self.h"
 
-enum JudgeCode{
-    Waiting,
-    Compiling,
-    Queuing,
-    Accept,
-    CompilationError,
-    WrongAnswer,
-    TimeLimitEXceeded,
-    MemoryLimitExceeded,
-    OutputLimitExceeded,
-    FloatingPointError,
-    RuntimeError,
-    PresentationError
-};
-
+namespace acm{
+    enum JudgeCode{
+        Waiting,
+        Compiling,
+        Queuing,
+        Accept,
+        CompilationError,
+        WrongAnswer,
+        TimeLimitEXceeded,
+        MemoryLimitExceeded,
+        OutputLimitExceeded,
+        FloatingPointError,
+        RuntimeError,
+        PresentationError
+    };
+}
 
 #endif
