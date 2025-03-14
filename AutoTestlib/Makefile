@@ -64,7 +64,7 @@ Test_obj_files = $(patsubst $(Test_src_dir)/%.cpp,$(Test_obj_dir)/%.o,$(Test_src
 
 # 构建测试程序
 .PHONY: test
-test: $(Test)
+test: disassembly $(Test)
 	@echo "构建 $(Test) 成功!"
 
 # 链接测试文件
@@ -83,6 +83,35 @@ $(Test_base_dir)/test.o: $(Test_src) $(Include_test_files) $(Include_files)
 	@echo "正在编译 $<..."
 	@mkdir -p $(dir $@)
 	$(Cpp) $(Cpp_flags) -I$(Include_dirs) -I$(Include_test_dirs) -c $< -o $@
+
+# ===汇编目标===
+.PHONY: disassembly
+disassembly: $(patsubst $(Main_src_dir)/%.cpp,$(Main_obj_dir)/%.S,$(Main_src_files))
+	@echo "汇编代码生成完成!"
+
+# 主函数
+$(Main_obj_dir)/%.S: $(Main_src_dir)/%.cpp $(Include_files)
+	@echo "正在生成汇编代码 $<..."
+	@mkdir -p $(dir $@)
+	$(Cpp) $(Cpp_flags) -I$(Include_dirs) -S $< -o $@
+
+# 测试函数
+$(Test_obj_dir)/%.S: $(Test_src_dir)/%.cpp $(Include_test_files) $(Include_files)
+	@echo "正在生成汇编代码 $<..."
+	@mkdir -p $(dir $@)
+	$(Cpp) $(Cpp_flags) -I$(Include_dirs) -I$(Include_test_dirs) -S $< -o $@
+
+# 为 main.cpp 单独添加规则
+$(Main_base_dir)/main.S: $(Main_src) $(Include_files)
+	@echo "正在生成汇编代码 $<..."
+	@mkdir -p $(dir $@)
+	$(Cpp) $(Cpp_flags) -I$(Include_dirs) -S $< -o $@
+
+# 为 test.cpp 单独添加规则
+$(Test_base_dir)/test.S: $(Test_src) $(Include_test_files) $(Include_files)
+	@echo "正在生成汇编代码 $<..."
+	@mkdir -p $(dir $@)
+	$(Cpp) $(Cpp_flags) -I$(Include_dirs) -I$(Include_test_dirs) -S $< -o $@
 
 # ===清理===
 .PHONY: clean
