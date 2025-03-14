@@ -25,7 +25,7 @@ TestSuite create_pipe_tests() {
         pc::Pipe pipe;
 
         // 设置为写入模式
-        pipe.set_type(pc::PIPE_WRITE);
+        pipe.set_type(pc::PIPE_WRITE,false);
 
         // 写入数据
         const char* testData = "hello";
@@ -33,7 +33,7 @@ TestSuite create_pipe_tests() {
         assert_true(bytesWritten > 0, "写入数据失败");
 
         // 设置为读取模式
-        pipe.set_type(pc::PIPE_READ);
+        pipe.set_type(pc::PIPE_READ,false);
 
         // 读取数据
         char buffer[10] = {0};
@@ -68,11 +68,11 @@ TestSuite create_pipe_tests() {
         assert_true(pipe.empty(), "新创建的管道应该是空的");
 
         // 写入一些数据
-        pipe.set_type(pc::PIPE_WRITE);
+        pipe.set_type(pc::PIPE_WRITE,false);
         pipe.write("test", 4);
 
         // 切换到读取模式
-        pipe.set_type(pc::PIPE_READ);
+        pipe.set_type(pc::PIPE_READ,false);
         assert_true(!pipe.empty(), "写入数据后管道不应该为空");
 
         // 读取数据
@@ -102,14 +102,14 @@ TestSuite create_pipe_tests() {
     // 测试高级读写功能
     suite.add_test("高级读写功能", []() -> std::string {
         pc::Pipe pipe;
-        pipe.set_type(pc::PIPE_WRITE);
+        pipe.set_type(pc::PIPE_WRITE,false);
 
         // 写入字符串
         std::string testStr = "line1\nline2\nline3";
         pipe.write(testStr);
 
         // 切换到读取模式
-        pipe.set_type(pc::PIPE_READ);
+        pipe.set_type(pc::PIPE_READ,false);
 
         // 读取单个字符
         char c = pipe.read_char();
@@ -141,11 +141,11 @@ TestSuite create_pipe_tests() {
         std::string largeData(5000, 'X');
 
         // 写入数据
-        pipe.set_type(pc::PIPE_WRITE);
+        pipe.set_type(pc::PIPE_WRITE,false);
         pipe.write(largeData);
 
         // 读取数据
-        pipe.set_type(pc::PIPE_READ);
+        pipe.set_type(pc::PIPE_READ,false);
         std::string readData = pipe.read_all();
 
         assert_equal(readData.size(), largeData.size(), "大缓冲区数据读取不完整");

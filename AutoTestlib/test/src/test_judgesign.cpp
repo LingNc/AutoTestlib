@@ -14,7 +14,7 @@ TestSuite create_judgesign_tests() {
         assert_equal_enum(JudgeCode::TimeLimitEXceeded, 6);
         assert_equal_enum(JudgeCode::RuntimeError, 10);
         assert_equal_enum(JudgeCode::MemoryLimitExceeded, 7);
-        assert_equal_enum(JudgeCode::FloatingPointError, 12);
+        assert_equal_enum(JudgeCode::FloatingPointError, 9);
         return "";
     });
 
