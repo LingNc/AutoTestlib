@@ -23,31 +23,67 @@ namespace acm{
             file.close();
             return code;
         }
+        // 加载Prompt
+        void AutoTest::load_prompt(const fs::path &path){
+            if(!fs::exists(path)){
+                throw std::runtime_error("Prompt文件夹不存在: "+path.string());
+            }
+            _GeneratePrompt=read_file(path/"GeneratePrompt.md");
+            _ValidatePrompt=read_file(path/"ValidatePrompt.md");
+            _CheckPrompt=read_file(path/"CheckPrompt.md");
+        }
         // 构造函数
-        AutoTest::AutoTest(const fs::path &testPath,const string &ACCode=""){
-            set_TestCode(testPath);
-            set_ACCode(ACCode);
+        AutoTest::AutoTest(const string &name)
+            : _name(name),_log("AutoTest.log"){
+        }
+            // 设置题目
+        void AutoTest::set_problem(const string &problem){
+            if(problem.empty()){
+                throw std::runtime_error("题目不能为空");
+            }
+            if(_name.empty()){
+                _name=get_problem_name(problem);
+
+            }
+            _problem=problem;
+        }
+        // 从路径获取题目
+        void AutoTest::set_problem(const fs::path &path) {
+            _problem=read_file(path);
+            set_problem(_problem);
         }
         // 设置测试代码
-        void AutoTest::set_TestCode(const string &name,const string &code) {
-            _name=name;
-            _basePath/=name;
-            _testPath=_basePath/"test.cpp";
+        void AutoTest::set_testCode(const string &code){
+            if(code.empty()){
+                throw std::runtime_error("测试代码不能为空");
+            }
             _testCode=code;
-            write_file(_testPath,_testCode);
         }
         // 从路径获取测试代码
-        void AutoTest::set_TestCode(const fs::path &path){
-            _name=path.stem().string();
-            _basePath=path.parent_path()/_name;
-            _testPath=_basePath/"test.cpp";
+        void AutoTest::set_testCode(const fs::path &path){
+            if(_name.empty()){
+                _name=path.stem().string();
+                _basePath=path.parent_path()/_name;
+            }
             _testCode=read_file(path);
-            write_file(_testPath,_testCode);
         }
         // 设置AC代码
         void AutoTest::set_ACCode(const string &code) {
             _ACCode=code;
-            _ACPath=_basePath/"AC.cpp";
-            write_file(_ACPath,_ACCode);
+        }
+        // 从路径获取AC代码
+        void AutoTest::set_ACCode(const fs::path &path) {
+            _ACCode=read_file(path);
+        }
+        // 开始自动对拍
+        AutoTest &AutoTest::start() {
+            // 检查路径上的所有目录是否存在
+            if (!fs::exists(_basePath)) {
+                fs::create_directories(_basePath);
+            }
+            // 加载Prompt
+            load_prompt();
+            // 生成数据生成器
+
         }
 };
