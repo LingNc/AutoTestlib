@@ -6,15 +6,22 @@
 #include <filesystem>
 #include "openai.hpp"
 #include "json.hpp"
-#include "Process.h"
 #include "loglib.hpp"
+#include "Process.h"
+#include "KeyCircle.h"
 
 namespace acm{
     using std::string;
     using nlohmann::json;
     class AutoTest{
         // 配置文件
-        fs::path _configPath="./Config/config.json";
+        fs::path _path="./Config";
+        json _setting;
+        //密钥环
+        KeyCircle _openaiKey;
+        // 注册key
+        void set_key();
+        // 测试路径配置文件
         json _config;
         // 测试程序名称
         string _name;
@@ -31,6 +38,7 @@ namespace acm{
         string _testCode;
         // 日志文件
         log::Log _log;
+        log::Log _testlog;
         // 写入文件
         void write_file(const fs::path &path,const string &code);
         // 读取文件
@@ -51,11 +59,13 @@ namespace acm{
         string chat(const string &prompt);
         // 获取题目名称
         string get_problem_name(string name);
-        // 初始化结构
-        bool init();
     public:
         // 构造函数
-        AutoTest(const string &name="",const fs::path &basePath=".");
+        AutoTest(const string &name="");
+        // 设置测试文件名字
+        void set_name(const string &name);
+        // 设置测试路径
+        void set_basePath(const fs::path &path);
         // 设置题目
         void set_problem(const string &problem);
         void set_problem(const fs::path &path);
@@ -65,6 +75,10 @@ namespace acm{
         // 设置AC代码
         void set_ACCode(const string &code);
         void set_ACCode(const fs::path &path);
+        // 载入已经存在的文件夹
+        void load(const fs::path &path);
+        // 初始化结构
+        bool init();
         // 生成数据
         AutoTest &generate();
         // 测试数据
