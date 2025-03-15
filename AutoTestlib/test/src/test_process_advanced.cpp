@@ -83,7 +83,7 @@ TestSuite create_process_advanced_tests(){
         memProc.set_memout(10); // 10MB内存限制
         memProc.start();
         acm::JudgeCode memResult=memProc.wait();
-        assert_true(memResult!=acm::JudgeCode::acm::MemoryLimitExceeded,"小内存程序不应超出内存限制");
+        assert_true(memResult!=acm::JudgeCode::MemoryLimitExceeded,"小内存程序不应超出内存限制");
         return "";
         });
 
@@ -94,8 +94,8 @@ TestSuite create_process_advanced_tests(){
         memLimitProc.start();
         acm::JudgeCode memLimitResult=memLimitProc.wait();
         // 可能触发acm::MemoryLimitExceeded或acm::RuntimeError
-        assert_true(memLimitResult==acm::JudgeCode::acm::MemoryLimitExceeded||
-            memLimitResult==acm::JudgeCode::acm::RuntimeError,
+        assert_true(memLimitResult==acm::JudgeCode::MemoryLimitExceeded||
+            memLimitResult==acm::JudgeCode::RuntimeError,
             "大内存程序应触发内存限制");
         return "";
         });
@@ -146,7 +146,7 @@ TestSuite create_process_advanced_tests(){
         pc::Process rm("/bin/rm",pc::Args("rm").add("-f").add("memtest").add("memtest.c"));
         rm.start();
         rm.wait();
-        assert_true(result==acm::JudgeCode::acm::MemoryLimitExceeded||proc.get_exit_code()!=0,
+        assert_true(result==acm::JudgeCode::MemoryLimitExceeded||proc.get_exit_code()!=0,
             "内存限制应该阻止程序正常执行");
         return "";
         });
@@ -195,7 +195,7 @@ TestSuite create_process_advanced_tests(){
         cancelTimeoutProc.cancel_timeout();
         cancelTimeoutProc.start();
         acm::JudgeCode cancelResult=cancelTimeoutProc.wait();
-        assert_equal(cancelResult,acm::JudgeCode::acm::Waiting,"取消超时设置失败");
+        assert_equal(cancelResult,acm::JudgeCode::Waiting,"取消超时设置失败");
         return "";
         });
 
@@ -206,7 +206,7 @@ TestSuite create_process_advanced_tests(){
         cancelMemProc.cancel_memout();
         cancelMemProc.start();
         acm::JudgeCode cancelMemResult=cancelMemProc.wait();
-        assert_equal(cancelMemResult,acm::JudgeCode::acm::Waiting,"取消内存限制设置失败");
+        assert_equal(cancelMemResult,acm::JudgeCode::Waiting,"取消内存限制设置失败");
         return "";
         });
 

@@ -127,7 +127,7 @@ TestSuite create_process_basic_tests() {
         auto endTime = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
         assert_true(duration.count()<1010,"程序已经结束，但是计时未停止");
-        assert_equal(result,acm::JudgeCode::acm::Waiting);
+        assert_equal(result,acm::JudgeCode::Waiting);
         return "";
     });
 
@@ -142,7 +142,7 @@ TestSuite create_process_basic_tests() {
         // 等待进程结束
         acm::JudgeCode result = sleep_proc.wait();
         // 检查是否因为超时而终止
-        assert_equal(result, acm::JudgeCode::acm::TimeLimitEXceeded);
+        assert_equal(result, acm::JudgeCode::TimeLimitEXceeded);
         return "";
     });
 
