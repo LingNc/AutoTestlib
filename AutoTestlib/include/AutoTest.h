@@ -9,20 +9,24 @@
 #include "loglib.hpp"
 #include "Process.h"
 #include "KeyCircle.h"
+#include "AutoConfig.h"
 
 namespace acm{
-    using std::string;
     using nlohmann::json;
+
+    // 自动测试类
     class AutoTest{
         // 配置文件
         fs::path _path="./Config";
-        json _setting;
+        AutoConfig _setting;
+        // 配置文件初始化
+        void init_config();
         //密钥环
         KeyCircle _openaiKey;
         // 注册key
-        void set_key();
+        void init_key();
         // 测试路径配置文件
-        json _config;
+        AutoConfig _config;
         // 测试程序名称
         string _name;
         // 数据路径
@@ -59,9 +63,15 @@ namespace acm{
         string chat(const string &prompt);
         // 获取题目名称
         string get_problem_name(string name);
+        // 完整性验证
+        bool full_check();
+        // 设定测试文件夹路径
+        void set_basePath();
     public:
         // 构造函数
         AutoTest(const string &name="");
+        // 设置配置文件
+        void config(ConfigSign config,ConfigSign value);
         // 设置测试文件名字
         void set_name(const string &name);
         // 设置测试路径

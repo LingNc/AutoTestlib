@@ -33,8 +33,9 @@ namespace acm{
         _CheckPrompt=read_file(path/"CheckPrompt.md");
     }
     // 注册key
-    void AutoTest::set_key(){
-        if(!_openaiKey.exist()||_openaiKey.get().empty()){
+    void AutoTest::init_key(){
+        if(!_openaiKey.exist()){
+            _log.tlog("密钥文件不存在，正在初始化密钥文件",log::WARNING);
             std::cout<<"请输入OpenAi密钥: ";
             string tempKey;
             std::cin>>tempKey;
@@ -45,13 +46,31 @@ namespace acm{
             _log.tlog("密钥注册成功");
         }
     }
+    // 配置文件初始化
+    void AutoTest::init_config(){
+        if(!_setting.exist()){
+            _log.tlog("配置文件不存在，正在初始化配置文件",log::WARNING);
+            // 默认跟随测试文件路径
+            _setting["Allow_Path"]=Test_Path;
+            _setting.save();
+        }
+    }
     // 构造函数
     AutoTest::AutoTest(const string &name)
-        : _name(name),_openaiKey(_path){
-        // 配置总日志
-        _log.set_logPath(_path);
+        : _name(name),_openaiKey(_path/"openai.key"),
+        _setting(_path/"config.json"),_log(_path){
+        // 设置日志总配置
         _log.set_logName("AutoTest.log");
         _log.tlog("AutoTest开始运行");
+        // 配置文件初始化
+        init_config();
+        // 注册key
+        init_key();
+    }
+    // 设置配置文件
+    void AutoTest::config(ConfigSign config,ConfigSign value){
+        _setting[f(config)]=value;
+        _log.tlog("配置项: "+f(config)+" 设置为: "+f(value));
     }
     // 设置题目
     void AutoTest::set_problem(const string &problem){
@@ -65,6 +84,7 @@ namespace acm{
         if(!fs::exists(path)){
             throw std::runtime_error("题目文件不存在: "+path.string());
         }
+        _problemfile=path;
         _problem=read_file(path);
         if(_problem.empty()){
             throw std::runtime_error("题目不能为空");
@@ -85,6 +105,7 @@ namespace acm{
         if(path.extension()!=".cpp"){
             throw std::runtime_error("测试代码文件格式错误: "+path.string());
         }
+        _testfile=path;
         _testCode=read_file(path);
         if(_testCode.empty()){
             throw std::runtime_error("测试代码不能为空");
@@ -102,20 +123,89 @@ namespace acm{
         if(!fs::exists(path)){
             throw std::runtime_error("AC代码文件不存在: "+path.string());
         }
+        if(path.extension()!=".cpp"){
+            throw std::runtime_error("AC代码文件格式错误: "+path.string());
+        }
+        _ACfile=path;
         _ACCode=read_file(path);
         if(_ACCode.empty()){
             throw std::runtime_error("AC代码不能为空");
         }
     }
-    // 初始化配置文件夹
-    bool AutoTest::init(){
-
+    // 完整性验证
+    bool AutoTest::full_check(){
+        // 验证配置完整性
+        string temp="完整性验证失败: ";
+        if(_problem.empty()){
+            _log.tlog(temp+"题目为空",log::ERROR);
+            return false;
+        }
+        if(_testCode.empty()){
+            _log.tlog(temp+"测试代码为空",log::ERROR);
+            return false;
+        }
+        if(_ACCode.empty()){
+            _log.tlog(temp+"AC代码为空",log::ERROR);
+            return false;
+        }
+        return true;
+    }
+    // 设定测试文件夹路径
+    void AutoTest::set_basePath(){
+        // 设定测试文件夹路径
+        ConfigSign AllowConfig=_setting[f(Allow_Path)];
+        switch(AllowConfig){
+        case AC_Path:
+            if(!_ACfile.empty()){
+                _basePath=_ACfile.parent_path()/_name;
+            }
+            break;
+        case Test_Path:
+            if(!_testfile.empty()){
+                _basePath=_testfile.parent_path()/_name;
+            }
+            break;
+        case Problem_Path:
+            if(!_problemfile.empty()){
+                _basePath=_problemfile.parent_path()/_name;
+            }
+            break;
+        default:
+            throw std::runtime_error("未知配置项");
+        }
+        // 未指定一个路径进行附加
+        if(_basePath=="."){
+            _log.tlog("未指定路径进行附加,使用默认路径",log::WARNING);
+            // _basePath=fs::current_path()/fs::path(_name);
+        }
+        // 检查路径上的所有目录是否存在
         if(!fs::exists(_basePath)){
             fs::create_directories(_basePath);
         }
-        _problemfile=_basePath/"problem.txt";
+    }
+    // 初始化配置文件夹
+    bool AutoTest::init(){
+        // 完整性验证
+        if(!full_check()){
+            _log.log("完整性验证失败",log::ERROR);
+            return false;
+        }
+        _log.tlog("完整性验证成功");
+        // 为测试文件夹命名
+        if(_name.empty()){
+            _log.tlog("未设定名称,开始为测试文件夹命名",log::WARNING);
+            _name=get_problem_name(_problem);
+        }
+        // 设定测试文件夹路径
+        set_basePath();
+        // 重设需要的文件路径
+        _problemfile=_basePath/"problem.md";
         _testfile=_basePath/"test.cpp";
         _ACfile=_basePath/"AC.cpp";
+        // 写入文件
+        write_file(_problemfile,_problem);
+        write_file(_testfile,_testCode);
+        write_file(_ACfile,_ACCode);
         return true;
     }
     // 开始自动对拍
