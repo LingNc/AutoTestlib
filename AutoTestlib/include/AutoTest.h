@@ -13,6 +13,9 @@ namespace acm{
     using std::string;
     using nlohmann::json;
     class AutoTest{
+        // 配置文件
+        fs::path _configPath="./Config/config.json";
+        json _config;
         // 测试程序名称
         string _name;
         // 数据路径
@@ -48,9 +51,11 @@ namespace acm{
         string chat(const string &prompt);
         // 获取题目名称
         string get_problem_name(string name);
+        // 初始化结构
+        bool init();
     public:
         // 构造函数
-        AutoTest(const string &name="");
+        AutoTest(const string &name="",const fs::path &basePath=".");
         // 设置题目
         void set_problem(const string &problem);
         void set_problem(const fs::path &path);
@@ -61,9 +66,9 @@ namespace acm{
         void set_ACCode(const string &code);
         void set_ACCode(const fs::path &path);
         // 生成数据
-        AutoTest &gen_data();
+        AutoTest &generate();
         // 测试数据
-        AutoTest &test();
+        AutoTest &check();
         // 开始自动对拍
         AutoTest &start();
 
