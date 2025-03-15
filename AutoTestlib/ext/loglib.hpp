@@ -41,9 +41,8 @@ namespace log{
      */
     class Log{
         // 私有成员
-    private:
-        std::string log_content;  ///< 日志内容
-        fs::path PATH=fs::current_path();  ///< 日志路径
+        std::string _log_content;  ///< 日志内容
+        fs::path _PATH=fs::current_path();  ///< 日志路径
         std::string _name="server.log";    ///< 日志文件名
 
         /**
@@ -89,7 +88,7 @@ namespace log{
          * @param content 要写入的内容
          */
         void file_write(std::string content){
-            std::ofstream logfile(PATH/"server.log",std::ios::app);
+            std::ofstream logfile(_PATH/"server.log",std::ios::app);
             if(!logfile.is_open()) std::cerr<<"[ERROR] 打开日志失败！"<<std::endl;
             logfile<<content<<std::endl;
             logfile.close();
@@ -103,10 +102,10 @@ namespace log{
          */
         Log(fs::path logPath=fs::current_path(),std::string name="server.log")
             :_name(name){
-            PATH=logPath;
+            _PATH=logPath;
             // 检查目录是否存在
-            if(!fs::exists(PATH)){
-                fs::create_directories(PATH);
+            if(!fs::exists(_PATH)){
+                fs::create_directories(_PATH);
             }
         }
 
@@ -123,59 +122,38 @@ namespace log{
          * @param path 新的日志文件路径
          */
         void set_logPath(fs::path path){
-            PATH=path;
+            _PATH=path;
             // 检查目录是否存在
-            if(!fs::exists(PATH)){
-                fs::create_directories(PATH);
+            if(!fs::exists(_PATH)){
+                fs::create_directories(_PATH);
             }
-        }
-
-        /**
-         * @brief 记录一般信息日志
-         * @param str 日志内容
-         */
-        void log(std::string str){
-            log_content=getLogLevel(1)+' '+str;
-            std::cout<<log_content<<std::endl;
-            file_write(log_content);
         }
 
         /**
          * @brief 记录指定级别的日志
-         * @param level 日志级别
+         * @param level 日志级别 - 默认 INFO
          * @param str 日志内容
          */
-        void log(LogLevel level,std::string str){
-            log_content=getLogLevel(level)+' '+str;
-            std::cout<<log_content<<std::endl;
-            if(level==ERROR) std::cerr<<log_content<<std::endl;
-            file_write(log_content);
-        }
-
-        /**
-         * @brief 记录带时间戳的一般信息日志
-         * @param str 日志内容
-         */
-        void tlog(std::string str){
-            std::string timestamp=getTime();
-            log_content="["+timestamp+"] "+getLogLevel(INFO)+' '+str;
-            std::cout<<log_content<<std::endl;
-            file_write(log_content);
+        void log(std::string str,LogLevel level = INFO){
+            _log_content=getLogLevel(level)+' '+str;
+            std::cout<<_log_content<<std::endl;
+            if(level==ERROR) std::cerr<<_log_content<<std::endl;
+            file_write(_log_content);
         }
 
         /**
          * @brief 记录带时间戳的指定级别日志
-         * @param level 日志级别
+         * @param level 日志级别 - 默认 INFO
          * @param str 日志内容
          */
-        void tlog(LogLevel level,std::string str){
+        void tlog(std::string str,LogLevel level=INFO){
             std::string timestamp=getTime();
-            log_content="["+timestamp+"] "+getLogLevel(level)+' '+str;
-            std::cout<<log_content<<std::endl;
+            _log_content="["+timestamp+"] "+getLogLevel(level)+' '+str;
+            std::cout<<_log_content<<std::endl;
             if(level==ERROR){
-                std::cerr<<log_content<<std::endl;
+                std::cerr<<_log_content<<std::endl;
             }
-            file_write(log_content);
+            file_write(_log_content);
         }
     };
 }
