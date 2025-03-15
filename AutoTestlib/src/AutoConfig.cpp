@@ -36,16 +36,9 @@ namespace acm{
     bool AutoConfig::exist(){
         // 获取文件的父目录
         fs::path parentPath=_filePath.parent_path();
-
         // 文件目录不存在
         if(!fs::exists(parentPath)){
-            try{
-                fs::create_directory(parentPath);
-                std::cerr<<"目录创建失败，可能是权限不够或者上级目录不存在。"<<std::endl;
-            }
-            catch(const fs::filesystem_error &e){
-                throw std::runtime_error("创建目录时出错: "+std::string(e.what()));
-            }
+            fs::create_directory(parentPath);
         }
         // 检查文件是否存在
         if(!fs::exists(_filePath)){
