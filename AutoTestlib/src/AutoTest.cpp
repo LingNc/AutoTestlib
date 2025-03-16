@@ -1,7 +1,7 @@
 #include "AutoTest.h"
 
 namespace acm{
-    void AutoTest::write_file(const fs::path &path,const string &code){
+    void AutoTest::wfile(const fs::path &path,const string &code){
         // 检查路径上的所有目录是否存在
         if(!fs::exists(path.parent_path())){
             fs::create_directories(path.parent_path());
@@ -14,7 +14,7 @@ namespace acm{
         file.close();
     }
     // 读取文件
-    string AutoTest::read_file(const fs::path &path){
+    string AutoTest::rfile(const fs::path &path){
         std::ifstream file(path);
         if(!file.is_open()){
             throw std::runtime_error("无法打开文件: "+path.string());
@@ -28,22 +28,28 @@ namespace acm{
         if(!fs::exists(path)){
             throw std::runtime_error("Prompt文件夹不存在: "+path.string());
         }
-        _GeneratePrompt=read_file(path/"GeneratePrompt.md");
-        _ValidatePrompt=read_file(path/"ValidatePrompt.md");
-        _CheckPrompt=read_file(path/"CheckPrompt.md");
+        _GeneratePrompt=rfile(path/"GeneratePrompt.md");
+        _ValidatePrompt=rfile(path/"ValidatePrompt.md");
+        _CheckPrompt=rfile(path/"CheckPrompt.md");
     }
-    // 注册key
-    void AutoTest::init_key(){
-        if(!_openaiKey.exist()){
-            _log.tlog("密钥文件不存在，正在初始化密钥文件",log::WARNING);
+    // 更改密钥
+    void AutoTest::set_key(const string &key){
+        if(key.empty()){
             std::cout<<"请输入OpenAi密钥: ";
             string tempKey;
             std::cin>>tempKey;
             if(tempKey.empty()){
                 throw std::runtime_error("密钥不能为空");
             }
-            _openaiKey.save(tempKey);
-            _log.tlog("密钥注册成功");
+        }
+        _openaiKey.save(key);
+        _log.tlog("密钥注册成功");
+    }
+    // 注册key
+    void AutoTest::init_key(){
+        if(!_openaiKey.exist()){
+            _log.tlog("密钥文件不存在，正在初始化密钥文件",log::WARNING);
+            set_key();
         }
     }
     // 配置文件初始化
@@ -51,7 +57,9 @@ namespace acm{
         if(!_setting.exist()){
             _log.tlog("配置文件不存在，正在初始化配置文件",log::WARNING);
             // 默认跟随测试文件路径
-            _setting["Allow_Path"]=Test_Path;
+            _setting[f(Allow_Path)]=Test_Path;
+            // 默认OpenAI API地址
+            _setting[f(OpenAI_URL)]="https://api.openai.com/v1";
             _setting.save();
         }
     }
@@ -85,7 +93,7 @@ namespace acm{
             throw std::runtime_error("题目文件不存在: "+path.string());
         }
         _problemfile=path;
-        _problem=read_file(path);
+        _problem=rfile(path);
         if(_problem.empty()){
             throw std::runtime_error("题目不能为空");
         }
@@ -106,7 +114,7 @@ namespace acm{
             throw std::runtime_error("测试代码文件格式错误: "+path.string());
         }
         _testfile=path;
-        _testCode=read_file(path);
+        _testCode=rfile(path);
         if(_testCode.empty()){
             throw std::runtime_error("测试代码不能为空");
         }
@@ -127,7 +135,7 @@ namespace acm{
             throw std::runtime_error("AC代码文件格式错误: "+path.string());
         }
         _ACfile=path;
-        _ACCode=read_file(path);
+        _ACCode=rfile(path);
         if(_ACCode.empty()){
             throw std::runtime_error("AC代码不能为空");
         }
@@ -146,6 +154,14 @@ namespace acm{
         }
         if(_ACCode.empty()){
             _log.tlog(temp+"AC代码为空",log::ERROR);
+            return false;
+        }
+        if(_name.empty()){
+            _log.tlog("测试文件夹名称为空,将自动命名",log::WARNING);
+            return false;
+        }
+        if(_setting[f(OpenAI_URL)]=="https://api.openai.com/v1"){
+            _log.tlog("OpenAI API为指定，将使用默认地址",log::WARNING);
             return false;
         }
         return true;
@@ -203,9 +219,15 @@ namespace acm{
         _testfile=_basePath/"test.cpp";
         _ACfile=_basePath/"AC.cpp";
         // 写入文件
-        write_file(_problemfile,_problem);
-        write_file(_testfile,_testCode);
-        write_file(_ACfile,_ACCode);
+        wfile(_problemfile,_problem);
+        wfile(_testfile,_testCode);
+        wfile(_ACfile,_ACCode);
+        // 写入配置文件
+        _config.set_path(_basePath/"config.json");
+        _config[f(Test_Name)]=_name;
+        _config.save();
+        // 初始化AI
+        _AI=std::make_unique<openai::OpenAI>(_openaiKey.get(),"",true,_setting[f(OpenAI_URL)]);
         return true;
     }
     // 开始自动对拍

@@ -16,6 +16,8 @@ namespace acm{
         AC_Path, //> AC代码路径
         Test_Path, //> 测试代码路径
         Problem_Path, //> 题目路径
+        OpenAI_URL, //> OpenAI API地址
+        Test_Name, //> 测试文件名称
     };
     // 配置类
     class AutoConfig{
@@ -30,7 +32,7 @@ namespace acm{
         // 检查配置文件是否存在且不为空
         bool exist();
         // 保存到配置文件
-        void save();
+        void save(size_t dumpNum=4);
         // 操作符
         template<typename T>
         json &operator[](T key){

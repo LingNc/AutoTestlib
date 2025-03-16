@@ -5,13 +5,11 @@ namespace acm{
     string f(ConfigSign config){
         switch(config){
         case Allow_Path:
-            return str(Allow_Path);
-        case AC_Path:
-            return str(AC_Path);
-        case Test_Path:
-            return str(Test_Path);
-        case Problem_Path:
-            return str(Problem_Path);
+            return "allow_path";
+        case OpenAI_URL:
+            return "openai_url";
+        case Test_Name:
+            return "name";
         default:
             throw std::runtime_error("未知配置项");
         }
@@ -49,12 +47,12 @@ namespace acm{
         return fileSize!=(size_t)0;
     }
     // 保存到配置文件
-    void AutoConfig::save(){
+    void AutoConfig::save(size_t dumpNum){
         std::ofstream file(_filePath);
         if(!file.is_open()){
             throw std::runtime_error("无法打开文件: "+_filePath.string());
         }
-        file<<_config.dump(4);
+        file<<_config.dump(dumpNum);
         file.close();
     }
 }

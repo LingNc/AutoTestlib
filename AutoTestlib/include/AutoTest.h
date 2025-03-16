@@ -44,9 +44,9 @@ namespace acm{
         log::Log _log;
         log::Log _testlog;
         // 写入文件
-        void write_file(const fs::path &path,const string &code);
+        void wfile(const fs::path &path,const string &code);
         // 读取文件
-        string read_file(const fs::path &path);
+        string rfile(const fs::path &path);
         // prompt
         string _GeneratePrompt="";
         string _ValidatePrompt="";
@@ -72,6 +72,8 @@ namespace acm{
         AutoTest(const string &name="");
         // 设置配置文件
         void config(ConfigSign config,ConfigSign value);
+        // 更改密钥
+        void set_key(const string &key="");
         // 设置测试文件名字
         void set_name(const string &name);
         // 设置测试路径
@@ -95,7 +97,8 @@ namespace acm{
         AutoTest &check();
         // 开始自动对拍
         AutoTest &start();
-
+        // 析构函数
+        ~AutoTest();
     };
 };
 
