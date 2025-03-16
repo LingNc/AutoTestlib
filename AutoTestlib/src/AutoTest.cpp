@@ -23,6 +23,12 @@ namespace acm{
         file.close();
         return code;
     }
+    // 获取文档
+    string AutoTest::get_docs(const string &DocsName){
+        // 文档文件夹
+        fs::path _docsPath=_path/"docs";
+
+    }
     // 加载Prompt
     void AutoTest::load_prompt(const fs::path &path){
         if(!fs::exists(path)){
@@ -159,6 +165,13 @@ namespace acm{
             _config[f(Attach_Global)]=true;
             _config.save();
         }
+    }
+    // 初始化文档读取
+    void AutoTest::init_docs(){
+        // 初始化文档文件夹
+        _docsPath=_path/"docs";
+        _log.log("正在读取Testlib文档");
+        string temp;
     }
     // 构造函数
     AutoTest::AutoTest(const string &name)
