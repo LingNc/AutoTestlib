@@ -130,17 +130,17 @@ namespace acm{
             json tempTool=R"({
                 "type": "function",
                 "function": {
-                    "name": "get_weather",
-                    "description": "Get weather of an location, the user shoud supply a location first",
+                    "name": "get_docs",
+                    "description": "获得Testlib函数库的参考文档的原始信息,用来作为重要的参考依据,有一个总的概括,和四个文档的详细描述: 包括Testlib_Total的描述,Generators数据生成器文档,Validators数据验证器文档,Checkers数据检查器文档,Interactors数据交互器文档",
                     "parameters": {
                         "type": "object",
                         "properties": {
-                            "location": {
+                            "DocsName": {
                                 "type": "string",
-                                "description": "The city and state, e.g. San Francisco, CA",
+                                "description": "文档的名称，有五个参数候选项可以选择: "Total",""Generators","Validators","Checkers","Interactors"。
                             }
                         },
-                        "required": ["location"]
+                        "required": ["DocsName"]
                     },
                 }
             })";
