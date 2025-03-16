@@ -10,6 +10,10 @@ namespace acm{
             return "openai_url";
         case Test_Name:
             return "name";
+        case Floder_Number:
+            return "floder";
+        case Prompt_Attach:
+            return "prompt_attach_mode";
         default:
             throw std::runtime_error("未知配置项");
         }

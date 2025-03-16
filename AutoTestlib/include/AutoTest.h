@@ -27,6 +27,8 @@ namespace acm{
         void init_key();
         // 测试路径配置文件
         AutoConfig _config;
+        // 测试配置初始化
+        void init_test_config();
         // 测试程序名称
         string _name;
         // 数据路径
@@ -65,30 +67,28 @@ namespace acm{
         string get_problem_name(string name);
         // 完整性验证
         bool full_check();
-        // 设定测试文件夹路径
-        void set_basePath();
     public:
         // 构造函数
         AutoTest(const string &name="");
         // 设置配置文件
-        void config(ConfigSign config,ConfigSign value);
+        void config(ConfigSign config,ConfigSign value,ConfigSign target=Test);
         // 更改密钥
         void set_key(const string &key="");
         // 设置测试文件名字
-        void set_name(const string &name);
+        bool set_name(const string &name);
         // 设置测试路径
-        void set_basePath(const fs::path &path);
+        bool set_basePath(const fs::path &path=".");
         // 设置题目
-        void set_problem(const string &problem);
-        void set_problem(const fs::path &path);
+        bool set_problem(const string &problem);
+        bool set_problem(const fs::path &path);
         // 设置测试代码
-        void set_testCode(const string &code);
-        void set_testCode(const fs::path &path);
+        bool set_testCode(const string &code);
+        bool set_testCode(const fs::path &path);
         // 设置AC代码
-        void set_ACCode(const string &code);
-        void set_ACCode(const fs::path &path);
+        bool set_ACCode(const string &code);
+        bool set_ACCode(const fs::path &path);
         // 载入已经存在的文件夹
-        void load(const fs::path &path);
+        bool load(const fs::path &path);
         // 初始化结构
         bool init();
         // 生成数据
