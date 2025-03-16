@@ -31,6 +31,63 @@ namespace acm{
         _GeneratePrompt=rfile(path/"GeneratePrompt.md");
         _ValidatePrompt=rfile(path/"ValidatePrompt.md");
         _CheckPrompt=rfile(path/"CheckPrompt.md");
+        _AskNamePrompt="你是一个自动命名器,请根据题面生成一个合适的题目名称。请你的回复JSON格式为:{\"name\":\"题目名称\"}。题面：";
+        // 工具
+        _tools.push_back({
+            { "name","Generate" },
+            { "description","生成代码" },
+            { "parameters",{
+                { "type","object" },
+            { "properties",{
+                { "code",{
+                    { "type","string" },
+            { "description","生成的代码" }
+            } }
+            } }
+            } }
+            });
+    }
+    // 新增工具
+    void AutoTest::add_tool(const json &tool){
+        _tools.push_back(tool);
+    }
+    // 对话
+    json AutoTest::chat(const json &prompt,ConfigSign type){
+        if(type==Model){
+            // 发送请求
+            return _AI.chat.create({
+                { "model",_setting[f(type)] },
+                { "messages",prompt },
+                { "tool",_tools },
+                { "response_format",{ "type","json_object" } },
+                _setting[f(Model_Config)]
+                });
+        }
+        else{
+            return _AI.chat.create({
+                { "model",_setting[f(type)] },
+                { "messages",prompt },
+                { "response_format",{ "type","json_object" } },
+                _setting[f(Model_Config)]
+                });
+        }
+
+    }
+    // 获取题目名称
+    string AutoTest::get_problem_name(string name){
+        // 获取题目名称
+        if(name.empty()){
+            _log.tlog("正在自动命名");
+            json prompt={
+                { "role","user" },
+                { "content",_AskNamePrompt+_problem }
+            };
+            json result=chat(prompt,Named_Model);
+            json resultData=result["choices"][0]["message"]["content"];
+            string tempName=resultData["name"];
+            _log.tlog("自动命名成功: "+tempName);
+            return tempName;
+        }
     }
     // 更改密钥
     void AutoTest::set_key(const string &key){
@@ -62,6 +119,33 @@ namespace acm{
             _setting[f(OpenAI_URL)]="https://api.openai.com/v1";
             // 初始化默认文件夹计数
             _setting[f(Floder_Number)]=0;
+            // 模型默认设置
+            _setting[f(Model_Config)]={
+                { "temperature",0.7 },
+                { "max_tokens",4096 },
+                { "top_p",1 }
+            };
+            // 默认工具
+            _setting[f(Tools)]=json::array();
+            json tempTool=R"({
+                "type": "function",
+                "function": {
+                    "name": "get_weather",
+                    "description": "Get weather of an location, the user shoud supply a location first",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "location": {
+                                "type": "string",
+                                "description": "The city and state, e.g. San Francisco, CA",
+                            }
+                        },
+                        "required": ["location"]
+                    },
+                }
+            })";
+            _setting[f(Tools)].push_back(tempTool);
+
             _setting.save();
         }
     }
@@ -202,10 +286,12 @@ namespace acm{
         }
         if(_name.empty()){
             _log.tlog("测试文件夹名称为空,将自动命名",log::WARNING);
-            return false;
         }
         if(_setting[f(OpenAI_URL)]=="https://api.openai.com/v1"){
             _log.tlog("OpenAI API为指定，将使用默认地址",log::WARNING);
+        }
+        if(_setting[f(Model)].empty()){
+            _log.tlog(temp+"基本模型未指定",log::ERROR);
             return false;
         }
         return true;
@@ -290,7 +376,8 @@ namespace acm{
         // 初始化测试配置
         init_test_config();
         // 初始化AI - 构造
-        _AI=std::make_unique<openai::OpenAI>(_openaiKey.get(),"",true,_setting[f(OpenAI_URL)]);
+        _AI.setToken(_openaiKey.get());
+        _AI.setBaseUrl(_setting[f(OpenAI_URL)]);
         _log.tlog("初始化成功,文件夹在: "+_basePath.string());
         return true;
     }
@@ -348,7 +435,8 @@ namespace acm{
                 _config.save();
             }
         }
-        _AI=std::make_unique<openai::OpenAI>(_openaiKey.get(),"",true,tempURL);
+        _AI.setBaseUrl(tempURL);
+        _AI.setToken(_openaiKey.get());
         _log.tlog("载入"+_name+"成功");
         _testlog.tlog("重新载入成功");
         return true;

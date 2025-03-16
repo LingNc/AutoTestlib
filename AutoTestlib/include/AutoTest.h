@@ -53,16 +53,19 @@ namespace acm{
         string _GeneratePrompt="";
         string _ValidatePrompt="";
         string _CheckPrompt="";
+        string _AskNamePrompt="";
         // 加载Prompt
         void load_prompt(const fs::path &path="./config/prompt");
-        // AI对象 - 智能指针
-        std::unique_ptr<openai::OpenAI> _AI;
+        // AI对象
+        openai::OpenAI _AI;
         // docs tools
         json _tools;
         // 历史记录
-        json _history;
+        AutoConfig _history;
+        // 对话内容
+        json _content;
         // 对话
-        string chat(const string &prompt);
+        json chat(const json &prompt,ConfigSign type=Model);
         // 获取题目名称
         string get_problem_name(string name);
         // 完整性验证
@@ -70,6 +73,8 @@ namespace acm{
     public:
         // 构造函数
         AutoTest(const string &name="");
+        // 新增AI工具
+        void add_tool(const json &tool);
         // 设置配置文件
         void config(ConfigSign config,ConfigSign value,ConfigSign target=Test);
         // 更改密钥

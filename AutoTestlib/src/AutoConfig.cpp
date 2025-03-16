@@ -14,6 +14,22 @@ namespace acm{
             return "floder";
         case Attach_Global:
             return "attach_mode";
+        case Model:
+            return "model";
+        case Named_Model:
+            return "named_model";
+        case Model_Config:
+            return "model_config";
+        case Prompt:
+            return "prompt";
+        case Temperature:
+            return "temperature";
+        case Max_Token:
+            return "max_token";
+        case Top_P:
+            return "top_p";
+        case Tools:
+            return "tools";
         default:
             throw std::runtime_error("未知配置项");
         }
@@ -58,5 +74,9 @@ namespace acm{
         }
         file<<_config.dump(dumpNum);
         file.close();
+    }
+    // 获取原数据
+    json AutoConfig::get() const{
+        return _config;
     }
 }
