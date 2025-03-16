@@ -12,8 +12,8 @@ namespace acm{
             return "name";
         case Floder_Number:
             return "floder";
-        case Prompt_Attach:
-            return "prompt_attach_mode";
+        case Attach_Global:
+            return "attach_mode";
         default:
             throw std::runtime_error("未知配置项");
         }

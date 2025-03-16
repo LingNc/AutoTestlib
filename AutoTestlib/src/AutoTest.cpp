@@ -67,12 +67,12 @@ namespace acm{
     }
     // 测试配置初始化
     void AutoTest::init_test_config(){
+        _config.set_path(_basePath/"config.json");
         if(!_config.exist()){
             _log.tlog("测试配置文件不存在，正在初始化配置文件",log::WARNING);
-            _config[f(Allow_Path)]=Test_Path;
-            _config[f(OpenAI_URL)]="https://api.openai.com/v1";
-            _config[f(Test_Name)]="AutoTest";
-            _config[f(Floder_Number)]=0;
+            _config[f(Test_Name)]=_name;
+            // 默认跟随全局配置
+            _config[f(Attach_Global)]=true;
             _config.save();
         }
     }
@@ -287,11 +287,8 @@ namespace acm{
         wfile(_testfile,_testCode);
         wfile(_ACfile,_ACCode);
         _testlog.tlog("文件写入成功");
-        // 写入配置文件
-        _config.set_path(_basePath/"config.json");
-        _config[f(Test_Name)]=_name;
-        _config.save();
-        _testlog.tlog("配置文件写入成功");
+        // 初始化测试配置
+        init_test_config();
         // 初始化AI - 构造
         _AI=std::make_unique<openai::OpenAI>(_openaiKey.get(),"",true,_setting[f(OpenAI_URL)]);
         _log.tlog("初始化成功,文件夹在: "+_basePath.string());
@@ -338,7 +335,20 @@ namespace acm{
         _testlog.set_logPath(_basePath);
         _testlog.set_logName(_name+".log");
         // 初始化AI - 构造
-        _AI=std::make_unique<openai::OpenAI>(_openaiKey.get(),"",true,_setting[f(OpenAI_URL)]);
+        string tempURL=_setting[f(OpenAI_URL)];
+        if(!_config[f(Attach_Global)]){
+            _log.tlog("附加模式为false");
+            _openaiKey.set_path(_basePath/"openai.key");
+            init_key();
+            tempURL=_config[f(OpenAI_URL)];
+            if(tempURL.empty()){
+                _log.tlog("OpenAI API地址为空,使用默认地址",log::WARNING);
+                tempURL="https://api.openai.com/v1";
+                _config[f(OpenAI_URL)]=tempURL;
+                _config.save();
+            }
+        }
+        _AI=std::make_unique<openai::OpenAI>(_openaiKey.get(),"",true,tempURL);
         _log.tlog("载入"+_name+"成功");
         _testlog.tlog("重新载入成功");
         return true;

@@ -21,7 +21,7 @@ namespace acm{
         OpenAI_URL, //> OpenAI API地址
         Test_Name, //> 测试文件名称
         Floder_Number, //> 自动创建文件夹
-        Prompt_Attach //> 附加Prompt模式 true 附加 false 分离
+        Attach_Global //> 附加Prompt模式 true 附加 false 分离
     };
     // 配置类
     class AutoConfig{
