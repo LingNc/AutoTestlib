@@ -56,6 +56,27 @@ namespace acm{
         }
 
     }
+    // 处理function call, 传入message
+    json AutoTest::handle_function(const json &func_calls){
+        // 处理function call
+        json result=json::array();
+        for(auto &func_call:func_calls){
+            json temp;
+            string funcName=func_call["function"]["name"];
+            json funcArgs=func_call["function"]["arguments"];
+            if(funcName=="get_docs"){
+                string docsName=funcArgs["DocsName"];
+                result[funcName]=get_docs(docsName);
+            }
+            else{
+                _log.tlog(_setting[f(Model)]+"使用了未知的函数: "+funcName,loglib::ERROR);
+                result[funcName]=json::object();
+                result[funcName]["error"]="未知函数调用";
+            }
+        }
+        return result;
+
+    }
     // 获取题目名称
     string AutoTest::get_problem_name(string name){
         // 获取题目名称
@@ -63,7 +84,7 @@ namespace acm{
             _log.tlog("正在自动命名");
             json prompt={
                 { "role","user" },
-                { "content",_prompt["askname"].dump(0)+_problem }
+                { "content",_prompt["askname"].dump()+_problem }
             };
             json result=chat(prompt,Named_Model);
             json resultData=result["choices"][0]["message"]["content"];
@@ -144,23 +165,27 @@ namespace acm{
         }
     }
     // 初始化文档读取
-    void AutoTest::init_docs(){
+    void AutoTest::init_docs(const fs::path &path){
+        if(!fs::exists(path)){
+            throw std::runtime_error("文档文件夹不存在: "+path.string());
+        }
         // 初始化文档文件夹
-        _docsPath=_path/"docs";
         _log.log("正在读取Testlib文档");
-        string temp;
         // 读取文档
-        _docs["Total"]=rfile(_docsPath/"Testlib_Total.md");
-        _docs[f(Generators)]=rfile(_docsPath/"Testlib_Generators.md");
-        _docs[f(Validators)]=rfile(_docsPath/"Testlib_Validators.md");
-        _docs[f(Checkers)]=rfile(_docsPath/"Testlib_Checkers.md");
-        _docs[f(Interactors)]=rfile(_docsPath/"Testlib_Interactors.md");
+        _docs["Total"]=rfile(path/"Testlib_Total.md");
+        _docs[f(Generators)]=rfile(path/"Testlib_Generators.md");
+        _docs[f(Validators)]=rfile(path/"Testlib_Validators.md");
+        _docs[f(Checkers)]=rfile(path/"Testlib_Checkers.md");
+        _docs[f(Interactors)]=rfile(path/"Testlib_Interactors.md");
     }
     // 加载Prompt
     void AutoTest::init_prompt(const fs::path &path){
         if(!fs::exists(path)){
             throw std::runtime_error("Prompt文件夹不存在: "+path.string());
         }
+        // 初始化Prompt文件夹
+        _log.tlog("正在读取Prompt");
+        // 读取Prompt
         _prompt[f(Generators)]=rfile(path/"GeneratePrompt.md");
         _prompt[f(Validators)]=rfile(path/"ValidatePrompt.md");
         _prompt[f(Checkers)]=rfile(path/"CheckPrompt.md");
@@ -446,6 +471,24 @@ namespace acm{
         _log.tlog("载入"+_name+"成功");
         _testlog.tlog("重新载入成功");
         return true;
+    }
+    // 生成数据
+    AutoTest &AutoTest::generate(){
+        // 生成数据
+        json prompt={
+            { "role","user" },
+            { "content",_prompt[f(Generators)].dump()+_problem }
+        };
+        json result=chat(prompt);
+        json resultData=result["choices"][0]["message"]["content"];
+        _log.tlog("数据生成成功");
+        // 读取数据
+        _testCode=resultData["code"];
+        _ACCode=resultData["AC"];
+        // 写入文件
+        wfile(_testfile,_testCode);
+        wfile(_ACfile,_ACCode);
+        return *this;
     }
     // 开始自动对拍
     AutoTest &AutoTest::start(){

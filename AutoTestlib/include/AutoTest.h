@@ -65,12 +65,12 @@ namespace acm{
         json chat(const json &prompt,ConfigSign type=Model);
         // 获取题目名称
         string get_problem_name(string name);
-        // 文档文件夹
-        fs::path _docsPath;
+        // 处理function call
+        json handle_function(const json &func_calls);
         // 文档内容
         json _docs;
         // 初始化文档读取
-        void init_docs();
+        void init_docs(const fs::path &path="./config/docs");
         // 获取文档
         string get_docs(const string &DocsName);
         // 完整性验证
