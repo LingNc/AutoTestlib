@@ -20,6 +20,9 @@ Include_test_obj_dir = $(Object_dir)/test/include
 Include_files = $(wildcard $(Include_dirs)/*.h)
 Include_test_files = $(wildcard $(Include_test_dirs)/*.h)
 
+# 外部库
+Include_exts = ext
+
 # ===主程序===
 Main = main
 Main_src = main.cpp
@@ -38,19 +41,19 @@ all: $(Main)
 # 链接主文件
 $(Main): $(Main_obj_files) $(Main_base_dir)/main.o
 	@echo "正在链接 $(Main)..."
-	$(Cpp) $(Cpp_flags) -I$(Include_dirs) $^ -o $@ $(Openai_libs)
+	$(Cpp) $(Cpp_flags) $^ -o $@ $(Openai_libs)
 
 # 编译中间产物 - 添加头文件
-$(Main_obj_dir)/%.o: $(Main_src_dir)/%.cpp $(Include_files)
+$(Main_obj_dir)/%.o: $(Main_src_dir)/%.cpp $(Include_files) $(Include_exts)
 	@echo "正在编译 $<..."
 	@mkdir -p $(dir $@)
-	$(Cpp) $(Cpp_flags) -I$(Include_dirs) -c $< -o $@
+	$(Cpp) $(Cpp_flags) -I$(Include_dirs) -I$(Include_exts) -c $< -o $@
 
 # 编译入口 - 添加头文件
-$(Main_base_dir)/main.o: $(Main_src) $(Include_files)
+$(Main_base_dir)/main.o: $(Main_src) $(Include_files) $(Include_exts)
 	@echo "正在编译 $<..."
 	@mkdir -p $(dir $@)
-	$(Cpp) $(Cpp_flags) -I$(Include_dirs) -c $< -o $@
+	$(Cpp) $(Cpp_flags) -I$(Include_dirs) -I$(Include_exts) -c $< -o $@
 
 # ===测试程序===
 Test = test/test
@@ -117,7 +120,8 @@ $(Test_base_dir)/test.S: $(Test_src) $(Include_test_files) $(Include_files)
 .PHONY: clean
 clean:
 	@echo "正在清理所有..."
-	@rm -rf $(Object_dir) $(Main) $(Test)
+	clean-main
+	clean-test
 	@echo "清理完成!"
 
 # 清理主程序
