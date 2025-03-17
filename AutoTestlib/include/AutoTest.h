@@ -43,19 +43,16 @@ namespace acm{
         fs::path _testfile;
         string _testCode;
         // 日志文件
-        log::Log _log;
-        log::Log _testlog;
+        loglib::Log _log;
+        loglib::Log _testlog;
         // 写入文件
         void wfile(const fs::path &path,const string &code);
         // 读取文件
         string rfile(const fs::path &path);
         // prompt
-        string _GeneratePrompt="";
-        string _ValidatePrompt="";
-        string _CheckPrompt="";
-        string _AskNamePrompt="";
+        json _prompt;
         // 加载Prompt
-        void load_prompt(const fs::path &path="./config/prompt");
+        void init_prompt(const fs::path &path="./config/prompt");
         // AI对象
         openai::OpenAI _AI;
         // docs tools

@@ -25,33 +25,10 @@ namespace acm{
     }
     // 获取文档
     string AutoTest::get_docs(const string &DocsName){
-        // 文档文件夹
-        fs::path _docsPath=_path/"docs";
-
-    }
-    // 加载Prompt
-    void AutoTest::load_prompt(const fs::path &path){
-        if(!fs::exists(path)){
-            throw std::runtime_error("Prompt文件夹不存在: "+path.string());
+        if(_docs.find(DocsName)==_docs.end()){
+            throw std::runtime_error("文档不存在: "+DocsName);
         }
-        _GeneratePrompt=rfile(path/"GeneratePrompt.md");
-        _ValidatePrompt=rfile(path/"ValidatePrompt.md");
-        _CheckPrompt=rfile(path/"CheckPrompt.md");
-        _AskNamePrompt="你是一个自动命名器,请根据题面生成一个合适的题目名称。请你的回复JSON格式为:{\"name\":\"题目名称\"}。题面：";
-        // 工具
-        _tools.push_back({
-            { "name","Generate" },
-            { "description","生成代码" },
-            { "parameters",{
-                { "type","object" },
-            { "properties",{
-                { "code",{
-                    { "type","string" },
-            { "description","生成的代码" }
-            } }
-            } }
-            } }
-            });
+        return _docs[DocsName];
     }
     // 新增工具
     void AutoTest::add_tool(const json &tool){
@@ -86,7 +63,7 @@ namespace acm{
             _log.tlog("正在自动命名");
             json prompt={
                 { "role","user" },
-                { "content",_AskNamePrompt+_problem }
+                { "content",_prompt["askname"].dump(0)+_problem }
             };
             json result=chat(prompt,Named_Model);
             json resultData=result["choices"][0]["message"]["content"];
@@ -111,14 +88,14 @@ namespace acm{
     // 注册key
     void AutoTest::init_key(){
         if(!_openaiKey.exist()){
-            _log.tlog("密钥文件不存在，正在初始化密钥文件",log::WARNING);
+            _log.tlog("密钥文件不存在，正在初始化密钥文件",loglib::WARNING);
             set_key();
         }
     }
     // 配置文件初始化
     void AutoTest::init_config(){
         if(!_setting.exist()){
-            _log.tlog("配置文件不存在，正在初始化配置文件",log::WARNING);
+            _log.tlog("配置文件不存在，正在初始化配置文件",loglib::WARNING);
             // 默认跟随测试文件路径
             _setting[f(Allow_Path)]=Test_Path;
             // 默认OpenAI API地址
@@ -159,7 +136,7 @@ namespace acm{
     void AutoTest::init_test_config(){
         _config.set_path(_basePath/"config.json");
         if(!_config.exist()){
-            _log.tlog("测试配置文件不存在，正在初始化配置文件",log::WARNING);
+            _log.tlog("测试配置文件不存在，正在初始化配置文件",loglib::WARNING);
             _config[f(Test_Name)]=_name;
             // 默认跟随全局配置
             _config[f(Attach_Global)]=true;
@@ -172,6 +149,22 @@ namespace acm{
         _docsPath=_path/"docs";
         _log.log("正在读取Testlib文档");
         string temp;
+        // 读取文档
+        _docs["Total"]=rfile(_docsPath/"Testlib_Total.md");
+        _docs[f(Generators)]=rfile(_docsPath/"Testlib_Generators.md");
+        _docs[f(Validators)]=rfile(_docsPath/"Testlib_Validators.md");
+        _docs[f(Checkers)]=rfile(_docsPath/"Testlib_Checkers.md");
+        _docs[f(Interactors)]=rfile(_docsPath/"Testlib_Interactors.md");
+    }
+    // 加载Prompt
+    void AutoTest::init_prompt(const fs::path &path){
+        if(!fs::exists(path)){
+            throw std::runtime_error("Prompt文件夹不存在: "+path.string());
+        }
+        _prompt[f(Generators)]=rfile(path/"GeneratePrompt.md");
+        _prompt[f(Validators)]=rfile(path/"ValidatePrompt.md");
+        _prompt[f(Checkers)]=rfile(path/"CheckPrompt.md");
+        _prompt["askname"]="你是一个自动命名器,请根据题面生成一个合适的题目名称。请你的回复JSON格式为:{\"name\":\"题目名称\"}。题面：";
     }
     // 构造函数
     AutoTest::AutoTest(const string &name)
@@ -199,7 +192,7 @@ namespace acm{
     // 设置测试文件名字
     bool AutoTest::set_name(const string &name){
         if(name.empty()){
-            _log.tlog("测试文件夹名称为空",log::WARNING);
+            _log.tlog("测试文件夹名称为空",loglib::WARNING);
             return false;
         }
         _name=name;
@@ -207,7 +200,7 @@ namespace acm{
     // 设置题目
     bool AutoTest::set_problem(const string &problem){
         if(problem.empty()){
-            _log.tlog("题目不能为空",log::ERROR);
+            _log.tlog("题目不能为空",loglib::ERROR);
             return false;
         }
         _problem=problem;
@@ -216,13 +209,13 @@ namespace acm{
     // 从路径获取题目
     bool AutoTest::set_problem(const fs::path &path){
         if(!fs::exists(path)){
-            _log.tlog("题目文件不存在: "+path.string(),log::ERROR);
+            _log.tlog("题目文件不存在: "+path.string(),loglib::ERROR);
             return false;
         }
         _problemfile=path;
         _problem=rfile(path);
         if(_problem.empty()){
-            _log.tlog("题目文件为空: "+path.string(),log::ERROR);
+            _log.tlog("题目文件为空: "+path.string(),loglib::ERROR);
             return false;
         }
         return true;
@@ -230,7 +223,7 @@ namespace acm{
     // 设置测试代码
     bool AutoTest::set_testCode(const string &code){
         if(code.empty()){
-            _log.tlog("测试代码不能为空",log::ERROR);
+            _log.tlog("测试代码不能为空",loglib::ERROR);
             return false;
         }
         _testCode=code;
@@ -239,17 +232,17 @@ namespace acm{
     // 从路径获取测试代码
     bool AutoTest::set_testCode(const fs::path &path){
         if(!fs::exists(path)){
-            _log.tlog("测试代码文件不存在: "+path.string(),log::ERROR);
+            _log.tlog("测试代码文件不存在: "+path.string(),loglib::ERROR);
             return false;
         }
         if(path.extension()!=".cpp"){
-            _log.tlog("测试代码文件格式错误: "+path.string(),log::ERROR);
+            _log.tlog("测试代码文件格式错误: "+path.string(),loglib::ERROR);
             return false;
         }
         _testfile=path;
         _testCode=rfile(path);
         if(_testCode.empty()){
-            _log.tlog("测试代码文件为空: "+path.string(),log::ERROR);
+            _log.tlog("测试代码文件为空: "+path.string(),loglib::ERROR);
             return false;
         }
         return true;
@@ -257,7 +250,7 @@ namespace acm{
     // 设置AC代码
     bool AutoTest::set_ACCode(const string &code){
         if(code.empty()){
-            _log.tlog("AC代码不能为空",log::ERROR);
+            _log.tlog("AC代码不能为空",loglib::ERROR);
             return false;
         }
         _ACCode=code;
@@ -266,17 +259,17 @@ namespace acm{
     // 从路径获取AC代码
     bool AutoTest::set_ACCode(const fs::path &path){
         if(!fs::exists(path)){
-            _log.tlog("AC代码文件不存在: "+path.string(),log::ERROR);
+            _log.tlog("AC代码文件不存在: "+path.string(),loglib::ERROR);
             return false;
         }
         if(path.extension()!=".cpp"){
-            _log.tlog("AC代码文件格式错误: "+path.string(),log::ERROR);
+            _log.tlog("AC代码文件格式错误: "+path.string(),loglib::ERROR);
             return false;
         }
         _ACfile=path;
         _ACCode=rfile(path);
         if(_ACCode.empty()){
-            _log.tlog("AC代码文件为空: "+path.string(),log::ERROR);
+            _log.tlog("AC代码文件为空: "+path.string(),loglib::ERROR);
             return false;
         }
         return true;
@@ -286,25 +279,25 @@ namespace acm{
         // 验证配置完整性
         string temp="完整性验证失败: ";
         if(_problem.empty()){
-            _log.tlog(temp+"题目为空",log::ERROR);
+            _log.tlog(temp+"题目为空",loglib::ERROR);
             return false;
         }
         if(_testCode.empty()){
-            _log.tlog(temp+"测试代码为空",log::ERROR);
+            _log.tlog(temp+"测试代码为空",loglib::ERROR);
             return false;
         }
         if(_ACCode.empty()){
-            _log.tlog(temp+"AC代码为空",log::ERROR);
+            _log.tlog(temp+"AC代码为空",loglib::ERROR);
             return false;
         }
         if(_name.empty()){
-            _log.tlog("测试文件夹名称为空,将自动命名",log::WARNING);
+            _log.tlog("测试文件夹名称为空,将自动命名",loglib::WARNING);
         }
         if(_setting[f(OpenAI_URL)]=="https://api.openai.com/v1"){
-            _log.tlog("OpenAI API为指定，将使用默认地址",log::WARNING);
+            _log.tlog("OpenAI API为指定，将使用默认地址",loglib::WARNING);
         }
         if(_setting[f(Model)].empty()){
-            _log.tlog(temp+"基本模型未指定",log::ERROR);
+            _log.tlog(temp+"基本模型未指定",loglib::ERROR);
             return false;
         }
         return true;
@@ -312,7 +305,7 @@ namespace acm{
     // 设定测试文件夹路径
     bool AutoTest::set_basePath(const fs::path &path){
         if(path.empty()){
-            _log.tlog("测试文件夹路径为空",log::ERROR);
+            _log.tlog("测试文件夹路径为空",loglib::ERROR);
             return false;
         }
         // 如果路径为默认路径
@@ -340,7 +333,7 @@ namespace acm{
             }
             // 未指定一个路径进行附加
             if(_basePath=="."){
-                _log.tlog("未指定路径进行附加,将自动构造路径",log::WARNING);
+                _log.tlog("未指定路径进行附加,将自动构造路径",loglib::WARNING);
                 int floderNum=_setting[f(Floder_Number)];
                 _setting[f(Floder_Number)]=++floderNum;
                 _basePath=_path/string("AutoTest"+std::to_string(floderNum));
@@ -360,13 +353,13 @@ namespace acm{
     bool AutoTest::init(){
         // 完整性验证
         if(!full_check()){
-            _log.log("完整性验证失败",log::ERROR);
+            _log.log("完整性验证失败",loglib::ERROR);
             return false;
         }
         _log.tlog("完整性验证成功");
         // 为测试文件夹命名
         if(_name.empty()){
-            _log.tlog("未设定名称,开始为测试文件夹命名",log::WARNING);
+            _log.tlog("未设定名称,开始为测试文件夹命名",loglib::WARNING);
             _name=get_problem_name(_problem);
         }
         // 设定测试文件夹路径
@@ -397,7 +390,7 @@ namespace acm{
     // 载入已经存在的文件夹
     bool AutoTest::load(const fs::path &path){
         if(!fs::exists(path)){
-            _log.tlog("指定路径不存在,请检查路径",log::ERROR);
+            _log.tlog("指定路径不存在,请检查路径",loglib::ERROR);
             return false;
         }
         _basePath=path;
@@ -407,7 +400,7 @@ namespace acm{
         _config.set_path(_basePath/"config.json");
         // 读取配置文件
         if(!_config.exist()){
-            _log.tlog("配置文件不存在,正在重建",log::WARNING);
+            _log.tlog("配置文件不存在,正在重建",loglib::WARNING);
             _name=path.filename().string();
         }
         // 读取配置项
@@ -416,19 +409,19 @@ namespace acm{
         // 读取题目
         _problem=rfile(_problemfile);
         if(_problem.empty()){
-            _log.tlog("题目文件为空,请检查",log::ERROR);
+            _log.tlog("题目文件为空,请检查",loglib::ERROR);
             return false;
         }
         // 读取测试代码
         _testCode=rfile(_testfile);
         if(_testCode.empty()){
-            _log.tlog("测试代码文件为空,请检查",log::ERROR);
+            _log.tlog("测试代码文件为空,请检查",loglib::ERROR);
             return false;
         }
         // 读取AC代码
         _ACCode=rfile(_ACfile);
         if(_ACCode.empty()){
-            _log.tlog("AC代码文件为空,请检查",log::ERROR);
+            _log.tlog("AC代码文件为空,请检查",loglib::ERROR);
             return false;
         }
         // 读入日志文件
@@ -442,7 +435,7 @@ namespace acm{
             init_key();
             tempURL=_config[f(OpenAI_URL)];
             if(tempURL.empty()){
-                _log.tlog("OpenAI API地址为空,使用默认地址",log::WARNING);
+                _log.tlog("OpenAI API地址为空,使用默认地址",loglib::WARNING);
                 tempURL="https://api.openai.com/v1";
                 _config[f(OpenAI_URL)]=tempURL;
                 _config.save();
@@ -461,7 +454,7 @@ namespace acm{
             fs::create_directories(_basePath);
         }
         // 加载Prompt
-        load_prompt();
+        init_prompt();
         // 生成数据生成器
 
     }

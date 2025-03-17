@@ -19,7 +19,7 @@
  * @namespace log
  * @brief 日志功能命名空间
  */
-namespace log{
+namespace loglib{
     namespace fs=std::filesystem;
 
     /**

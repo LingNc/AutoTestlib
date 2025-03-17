@@ -30,6 +30,14 @@ namespace acm{
             return "top_p";
         case Tools:
             return "tools";
+        case Generators:
+            return "generators";
+        case Validators:
+            return "validators";
+        case Checkers:
+            return "checkers";
+        case Interactors:
+            return "interactors";
         default:
             throw std::runtime_error("未知配置项");
         }
