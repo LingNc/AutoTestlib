@@ -84,7 +84,7 @@ namespace acm{
         file.close();
     }
     // 获取原数据
-    json AutoConfig::get() const{
+    json &AutoConfig::get(){
         return _config;
     }
 }

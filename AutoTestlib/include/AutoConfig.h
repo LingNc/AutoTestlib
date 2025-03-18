@@ -50,7 +50,7 @@ namespace acm{
         // 保存到配置文件
         void save(size_t dumpNum=4);
         // 获取原数据
-        json get() const;
+        json &get();
         // 操作符
         template<typename T>
         json &operator[](T key){

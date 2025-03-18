@@ -4,6 +4,7 @@
 #include <fstream>
 #include <memory>
 #include <filesystem>
+#include <unordered_map>
 #include "openai.hpp"
 #include "json.hpp"
 #include "loglib.hpp"
@@ -50,7 +51,7 @@ namespace acm{
         // 读取文件
         string rfile(const fs::path &path);
         // prompt
-        json _prompt;
+        std::unordered_map<string,string> _prompt;
         // 加载Prompt
         void init_prompt(const fs::path &path="./config/prompt");
         // AI对象
@@ -59,6 +60,8 @@ namespace acm{
         json _tools;
         // 历史记录
         AutoConfig _history;
+        // 初始化系统提示词,以及初始化历史记录
+        void init_system();
         // 对话内容
         json _content;
         // 对话
@@ -70,7 +73,7 @@ namespace acm{
         // 处理function call 参数名指定错误
         string check_func_call(const json &funcArgs,string &funcName);
         // 完全Ai，可以自动处理工具调用，可传入可选参数
-        json AI(const string &prompt,json session=json::array(),ConfigSign useModel=Model);
+        int AI(const string &prompt,json &session,ConfigSign useModel=Model);
         // 文档内容
         json _docs;
         // 初始化文档读取

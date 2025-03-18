@@ -107,7 +107,7 @@ namespace acm{
             _log.tlog("正在自动命名");
             json prompt=json::array({
                 { "role","user" },
-                { "content",_prompt["askname"].dump()+_problem }
+                { "content",_prompt["askname"]+_problem }
                 });
             json result=chat(prompt,Named_Model);
             json resultData=result["choices"][0]["message"]["content"];
@@ -117,7 +117,7 @@ namespace acm{
         }
     }
     // AI，自动处理工具调用
-    json AutoTest::AI(const string &prompt,json session,ConfigSign useModel){
+    int AutoTest::AI(const string &prompt,json &session,ConfigSign useModel){
         json result={
             { "role","user" },
             { "content",prompt }
@@ -142,7 +142,12 @@ namespace acm{
             // 发送请求
             result=chat(session);
         }
-        _testlog.tlog("数据生成成功");
+        // 读取最后一次数据
+        session.push_back({
+            { "role","assistant" },
+            { "content",result["choices"][0]["message"]["content"] }
+            });
+        return 0;
     }
 
     // 更改密钥
@@ -258,7 +263,23 @@ namespace acm{
         _prompt[f(Generators)]=rfile(path/"GeneratePrompt.md");
         _prompt[f(Validators)]=rfile(path/"ValidatePrompt.md");
         _prompt[f(Checkers)]=rfile(path/"CheckPrompt.md");
+        _prompt["system"]=rfile(path/"System.md");
         _prompt["askname"]="你是一个自动命名器,请根据题面生成一个合适的题目名称。请你的回复JSON格式为:{\"name\":\"题目名称\"}。题面：";
+    }
+    // 初始化系统提示词
+    void AutoTest::init_system(){
+        // 初始化系统提示词
+        _history.set_path(_basePath/"history.json");
+        if(!_history.exist()){
+            auto &history=_history.get();
+            history=json::array();
+            history.push_back({
+                { "role","system" },
+                { "content",_prompt["system"] }
+                });
+            _history.save();
+        }
+
     }
     // 构造函数
     AutoTest::AutoTest(const string &name)
@@ -271,6 +292,10 @@ namespace acm{
         init_config();
         // 注册key
         init_key();
+        // 默认文档读取
+        init_docs();
+        // 默认prompt读取
+        init_prompt();
     }
     // 设置配置文件
     void AutoTest::config(ConfigSign config,ConfigSign value,ConfigSign target){
@@ -479,6 +504,8 @@ namespace acm{
         _AI.setToken(_openaiKey.get());
         _AI.setBaseUrl(_setting[f(OpenAI_URL)]);
         _log.tlog("初始化成功,文件夹在: "+_basePath.string());
+        // 初始化历史记录
+        init_system();
         return true;
     }
     // 载入已经存在的文件夹
@@ -537,44 +564,77 @@ namespace acm{
         }
         _AI.setBaseUrl(tempURL);
         _AI.setToken(_openaiKey.get());
+        // 初始化系统提示词
+        init_system();
         _log.tlog("载入"+_name+"成功");
         _testlog.tlog("重新载入成功");
         return true;
     }
+
     // 生成数据
     AutoTest &AutoTest::generate(){
-        // 生成数据
-        json prompt=json::array({
+        // 初始化提示词
+        json &session=_history.get();
+        session.push_back({
             { "role","user" },
-            { "content",_prompt[f(Generators)].dump()+_problem }
+            { "content","完整题面为: "+_problem },
+            { "role","user" },
+            { "content","AC代码为: "+_ACCode }
             });
-        json result=chat(prompt);
-        // 循环处理一次中的function calls
-        while(result["choices"][0]["finish_reason"]=="function_call"){
-            json tempData=result["choices"][0]["message"];
-            json tempCalls=tempData["function_calls"];
-            string tempContent=tempData["content"];
-            // 处理function call
-            json toolMessage=handle_function(tempCalls);
-            // 拼接历史记录
-            if(!tempContent.empty()){
-                prompt+={
-                    {"role","assistant"},
-                    { "content",tempContent }
-                };
-            }
-            prompt+=toolMessage;
-            // 发送请求
-            result=chat(prompt);
-        }
-        _testlog.tlog("数据生成成功");
+        // 生成数据生成器
+        string prompt=_prompt[f(Generators)];
+        // 处理请求
+        AI(prompt,session);
+        _testlog.tlog("数据生成器生成成功");
         // 读取数据
-        json response=result["choices"][0]["message"]["content"];
-        _testCode=response["code"];
-        _ACCode=response["AC"];
+        json result=json::parse(string(session.back()["content"]));
+        string code=result["code"];
         // 写入文件
-        wfile(_testfile,_testCode);
-        wfile(_ACfile,_ACCode);
+        wfile(_basePath/"generate.cpp",code);
+        // 编译文件
+        process::Args args_gen("g++");
+        args_gen.add("generate.cpp").add("-o").add("generate");
+        process::Process proc_gen("/bin/g++",args_gen);
+        proc_gen.start();
+        proc_gen.wait();
+        // 生成数据校验器
+        prompt=_prompt[f(Validators)];
+        // 处理请求
+        AI(prompt,session);
+        _testlog.tlog("数据校验器生成成功");
+        // 读取数据
+        result=json::parse(string(session.back()["content"]));
+        code=result["code"];
+        // 写入文件
+        wfile(_basePath/"validate.cpp",code);
+        // 编译文件
+        process::Args args_val("g++");
+        args_val.add("validate.cpp").add("-o").add("validate");
+        process::Process proc_val("/bin/g++",args_val);
+        proc_val.start();
+        proc_val.wait();
+        return *this;
+    }
+    // 生成数据检查器
+    AutoTest &AutoTest::check(){
+        // 初始化提示词
+        json &session=_history.get();
+        // 生成数据检查器
+        string prompt=_prompt[f(Checkers)];
+        // 处理请求
+        AI(prompt,session);
+        _testlog.tlog("数据检查器生成成功");
+        // 读取数据
+        json result=json::parse(string(session.back()["content"]));
+        string code=result["code"];
+        // 写入文件
+        wfile(_basePath/"check.cpp",code);
+        // 编译文件
+        process::Args args_check("g++");
+        args_check.add("check.cpp").add("-o").add("check");
+        process::Process proc_check("/bin/g++",args_check);
+        proc_check.start();
+        proc_check.wait();
         return *this;
     }
     // 开始自动对拍
@@ -583,9 +643,15 @@ namespace acm{
         if(!fs::exists(_basePath)){
             fs::create_directories(_basePath);
         }
-        // 加载Prompt
-        init_prompt();
-        // 生成数据生成器
+        // 检查生成器是否生成
+        if(!fs::exists(_basePath/"generate")){
+            generate();
+        }
+        // 检查检查器是否生成
+        if(!fs::exists(_basePath/"check")){
+            check();
+        }
+        // 运行
 
     }
 };
