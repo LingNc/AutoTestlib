@@ -26,7 +26,7 @@ namespace acm{
     // 获取文档
     string AutoTest::get_docs(const string &DocsName){
         if(_docs.find(DocsName)==_docs.end()){
-            throw std::runtime_error("文档不存在: "+DocsName);
+            return "文档不存在: "+DocsName;
         }
         return _docs[DocsName];
     }
@@ -42,6 +42,7 @@ namespace acm{
                 { "model",_setting[f(type)] },
                 { "messages",prompt },
                 { "tool",_tools },
+                { "tool_choice","auto" },
                 { "response_format",{ "type","json_object" } },
                 _setting[f(Model_Config)]
                 });
@@ -56,43 +57,94 @@ namespace acm{
         }
 
     }
-    // 处理function call, 传入message
+    // 处理function call, 传入func calls，附带日志
     json AutoTest::handle_function(const json &func_calls){
         // 处理function call
         json result=json::array();
         for(auto &func_call:func_calls){
             json temp;
+            temp["role"]="tool";
+            temp["tool_call_id"]=func_call["id"];
             string funcName=func_call["function"]["name"];
             json funcArgs=func_call["function"]["arguments"];
             if(funcName=="get_docs"){
-                string docsName=funcArgs["DocsName"];
-                result[funcName]=get_docs(docsName);
+                if(check_func_call(funcArgs,funcName).empty()){
+                    string docsName=funcArgs["DocsName"];
+                    temp["content"]=get_docs(docsName);
+                    _testlog.tlog(_setting[f(Model)]+"调用了函数: "+funcName+"参数: "+funcArgs.dump());
+                }
             }
             else{
-                _log.tlog(_setting[f(Model)]+"使用了未知的函数: "+funcName,loglib::ERROR);
-                result[funcName]=json::object();
-                result[funcName]["error"]="未知函数调用";
+                _testlog.tlog(_setting[f(Model)]+"使用了未知的函数: "+funcName,loglib::ERROR);
+                // 获取函数列表
+                string funcList;
+                for(auto &tool:_tools){
+                    funcList+=tool["function"]["name"]+", ";
+                }
+                temp["content"]="你使用了未知函数: "+funcName+"应该使用的函数包括: "+funcList;
             }
+            // 添加到对话列表
+            result.push_back(temp);
         }
         return result;
-
+    }
+    // 处理function call 参数名指定错误
+    // 如果正常参数返回值应该是一个空字符串，不正常会返回给Ai错误信息
+    string AutoTest::check_func_call(const json &funcArgs,string &funcName){
+        // 处理function call 参数名指定错误
+        string content;
+        // 找不到参数，参数传入错误
+        if(funcArgs.find("DocsName")==funcArgs.end()){
+            _testlog.tlog(_setting[f(Model)]+"使用了未知的参数名: "+funcArgs.dump(),loglib::ERROR);
+            content="你使用了函数"+funcName+"的未知参数: "+funcArgs.dump()+"应该传入参数是: DocsName,并指定参数可选的值";
+        }
+        return content;
     }
     // 获取题目名称
     string AutoTest::get_problem_name(string name){
         // 获取题目名称
         if(name.empty()){
             _log.tlog("正在自动命名");
-            json prompt={
+            json prompt=json::array({
                 { "role","user" },
                 { "content",_prompt["askname"].dump()+_problem }
-            };
+                });
             json result=chat(prompt,Named_Model);
             json resultData=result["choices"][0]["message"]["content"];
             string tempName=resultData["name"];
-            _log.tlog("自动命名成功: "+tempName);
+            _testlog.tlog("自动命名成功: "+tempName);
             return tempName;
         }
     }
+    // AI，自动处理工具调用
+    json AutoTest::AI(const string &prompt,json session,ConfigSign useModel){
+        json result={
+            { "role","user" },
+            { "content",prompt }
+        };
+        session.push_back(result);
+        result=chat(session,useModel);
+        // 循环处理一次中的function calls
+        while(result["choices"][0]["finish_reason"]=="function_call"){
+            json tempData=result["choices"][0]["message"];
+            json tempCalls=tempData["function_calls"];
+            string tempContent=tempData["content"];
+            // 处理function call，并输出日志
+            json toolMessage=handle_function(tempCalls);
+            // 拼接历史记录
+            if(!tempContent.empty()){
+                session+={
+                    {"role","assistant"},
+                    { "content",tempContent }
+                };
+            }
+            session+=toolMessage;
+            // 发送请求
+            result=chat(session);
+        }
+        _testlog.tlog("数据生成成功");
+    }
+
     // 更改密钥
     void AutoTest::set_key(const string &key){
         if(key.empty()){
@@ -131,23 +183,40 @@ namespace acm{
             };
             // 默认工具
             _setting[f(Tools)]=json::array();
-            json tempTool=R"({
-                "type": "function",
-                "function": {
-                    "name": "get_docs",
-                    "description": "获得Testlib函数库的参考文档的原始信息,用来作为重要的参考依据,有一个总的概括,和四个文档的详细描述: 包括Testlib_Total的描述,Generators数据生成器文档,Validators数据验证器文档,Checkers数据检查器文档,Interactors数据交互器文档",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "DocsName": {
-                                "type": "string",
-                                "description": "文档的名称，有五个参数候选项可以选择: "Total",""Generators","Validators","Checkers","Interactors"。
-                            }
-                        },
-                        "required": ["DocsName"]
-                    },
-                }
-            })";
+            json tempTool={
+                { "type","function" },
+                { "function",{
+                    { "name","get_docs" },
+                { "description","获得Testlib函数库的参考文档的原始信息,用来作为重要的参考依据,有一个总的概括,和四个文档的详细描述: 包括Testlib_Total的描述,Generators数据生成器文档,Validators数据验证器文档,Checkers数据检查器文档,Interactors数据交互器文档" },
+                { "parameters",{
+                    { "type","object" },
+                { "properties",{
+                    { "DocsName",{
+                        { "type","string" },
+                { "description","文档的名称，有五个参数候选项可以选择: \"Total\",\"\"Generators\",\"Validators\",\"Checkers\",\"Interactors\"。" }
+            } }
+            } },
+                { "required",json::array({ "DocsName" }) }
+            } }
+            } }
+            };
+            // json tempTool1=R"({
+            //     "type": "function",
+            //     "function": {
+            //         "name": "get_docs",
+            //         "description": "获得Testlib函数库的参考文档的原始信息,用来作为重要的参考依据,有一个总的概括,和四个文档的详细描述: 包括Testlib_Total的描述,Generators数据生成器文档,Validators数据验证器文档,Checkers数据检查器文档,Interactors数据交互器文档",
+            //         "parameters": {
+            //             "type": "object",
+            //             "properties": {
+            //                 "DocsName": {
+            //                     "type": "string",
+            //                     "description": "文档的名称，有五个参数候选项可以选择: "Total",""Generators","Validators","Checkers","Interactors"。"
+            //                 }
+            //             },
+            //             "required": ["DocsName"]
+            //         }
+            //     }
+            // })";
             _setting[f(Tools)].push_back(tempTool);
 
             _setting.save();
@@ -475,16 +544,34 @@ namespace acm{
     // 生成数据
     AutoTest &AutoTest::generate(){
         // 生成数据
-        json prompt={
+        json prompt=json::array({
             { "role","user" },
             { "content",_prompt[f(Generators)].dump()+_problem }
-        };
+            });
         json result=chat(prompt);
-        json resultData=result["choices"][0]["message"]["content"];
-        _log.tlog("数据生成成功");
+        // 循环处理一次中的function calls
+        while(result["choices"][0]["finish_reason"]=="function_call"){
+            json tempData=result["choices"][0]["message"];
+            json tempCalls=tempData["function_calls"];
+            string tempContent=tempData["content"];
+            // 处理function call
+            json toolMessage=handle_function(tempCalls);
+            // 拼接历史记录
+            if(!tempContent.empty()){
+                prompt+={
+                    {"role","assistant"},
+                    { "content",tempContent }
+                };
+            }
+            prompt+=toolMessage;
+            // 发送请求
+            result=chat(prompt);
+        }
+        _testlog.tlog("数据生成成功");
         // 读取数据
-        _testCode=resultData["code"];
-        _ACCode=resultData["AC"];
+        json response=result["choices"][0]["message"]["content"];
+        _testCode=response["code"];
+        _ACCode=response["AC"];
         // 写入文件
         wfile(_testfile,_testCode);
         wfile(_ACfile,_ACCode);

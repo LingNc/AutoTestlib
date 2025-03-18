@@ -67,6 +67,10 @@ namespace acm{
         string get_problem_name(string name);
         // 处理function call
         json handle_function(const json &func_calls);
+        // 处理function call 参数名指定错误
+        string check_func_call(const json &funcArgs,string &funcName);
+        // 完全Ai，可以自动处理工具调用，可传入可选参数
+        json AI(const string &prompt,json session=json::array(),ConfigSign useModel=Model);
         // 文档内容
         json _docs;
         // 初始化文档读取
