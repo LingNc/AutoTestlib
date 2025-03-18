@@ -4,7 +4,6 @@
 #include "Self.h"
 #include "Timer.h"
 #include "Args.h"
-#include "JudgeSign.h"
 #include "Pipe.h"
 #include <iostream>
 #include <sstream>
@@ -47,8 +46,6 @@ namespace process{
         bool _enable_color=false;
         // 退出状态
         int _exit_code=-1;
-        // 判断状态
-        acm::JudgeCode _code=acm::Waiting;
         // 缓冲区大小
         int _buffer_size=4096;
         // 非阻塞超时
@@ -73,9 +70,11 @@ namespace process{
         // 启动子进程
         void start();
         // 等待子进程结束
-        acm::JudgeCode wait();
-        // 获得退出状态
+        Status wait();
+        // 获得退出码
         int get_exit_code() const;
+        // 获得退出状态
+        Status get_status() const;
         // 读取数据
         string read(PipeType type=PIPE_OUT,size_t nbytes=0);
         // 写入数据

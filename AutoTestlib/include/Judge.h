@@ -2,6 +2,7 @@
 #define JUDGESIGN_H
 
 #include "Self.h"
+#include "Process.h"
 
 namespace acm{
     enum JudgeCode{
@@ -18,6 +19,7 @@ namespace acm{
         RuntimeError,
         PresentationError
     };
+    JudgeCode judge(process::Status status,int exit_code);
 }
 
 #endif

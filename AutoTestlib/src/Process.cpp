@@ -145,51 +145,30 @@ namespace process{
         }
     }
 
-    acm::JudgeCode Process::wait(){
+    Status Process::wait(){
         int status;
         waitpid(_pid,&status,0);
         _exit_code=status;
         _pid=-1;
-
-        // 首先检查是否已经标记为超时
-        if(_status==TIMEOUT){
-            return acm::TimeLimitEXceeded;
-        }
-        else if(WIFEXITED(status)){
+        if(WIFEXITED(status)){
             int temp=WEXITSTATUS(status);
             if(temp==0){
                 _status=STOP;
-                return acm::Waiting;
+                return _status;
             }
             else{
                 _status=ERROR;
-                return acm::Waiting;
+                return _status;
             }
         }
         else if(WIFSIGNALED(status)){
             int signal=WTERMSIG(status);
             _status=RE;
-            switch(signal){
-            case SIGSEGV:
-                return acm::RuntimeError;
-                // 修复逻辑运算符错误，使用单独的case
-            case SIGABRT:
-                return acm::MemoryLimitExceeded;
-            case SIGKILL:
-                // 如果已经标记为TIMEOUT，则返回超时错误
-                if(_status==TIMEOUT){
-                    return acm::TimeLimitEXceeded;
-                }
-                return acm::MemoryLimitExceeded;
-            case SIGFPE:
-                return acm::FloatingPointError;
-            default:
-                return acm::RuntimeError;
-            }
+            return _status;
         }
         else{
             _status=RE;
-            return acm::RuntimeError;
+            return _status;
         }
         // 停止计时
         if(_status!=RUNNING){
@@ -199,6 +178,10 @@ namespace process{
 
     int Process::get_exit_code() const{
         return _exit_code;
+    }
+
+    Status Process::get_status() const{
+        return _status;
     }
 
     Process &Process::write(const string &data){
@@ -310,7 +293,7 @@ namespace process{
             // 发送成功
             if(signal==SIGKILL||signal==SIGTERM){
                 // 关闭管道
-                _code=wait();
+                _status=wait();
                 close();
                 if(_status!=TIMEOUT){
                     _status=STOP;
