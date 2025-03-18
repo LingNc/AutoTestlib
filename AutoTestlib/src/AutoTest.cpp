@@ -570,7 +570,64 @@ namespace acm{
         _testlog.tlog("重新载入成功");
         return true;
     }
-
+    // 测试工具生成编译
+    bool AutoTest::make(ConfigSign name,json &session){
+        string nameStr;
+        switch(name){
+        case Generators:
+            nameStr="数据生成器";
+            break;
+        case Validators:
+            nameStr="数据验证器";
+            break;
+        case Checkers:
+            nameStr="数据检查器";
+            break;
+        case Interactors:
+            nameStr="数据交互器";
+            break;
+        }
+        string prompt;
+        _testlog.tlog("正在生成"+nameStr);
+        prompt=_prompt[f(name)];
+        // 处理请求
+        AI(prompt,session);
+        _testlog.tlog(nameStr+"生成成功");
+        // 读取数据
+        json result=json::parse(string(session.back()["content"]));
+        string code=result["code"];
+        // 写入文件
+        string fileName=f(name);
+        wfile(_basePath/string(fileName+".cpp"),code);
+        // 编译文件
+        _testlog.tlog("正在编译"+nameStr);
+        process::Args args("g++");
+        args.add(fileName+".cpp").add("-o").add(fileName);
+        process::Process proc("/bin/g++",args);
+        proc.start();
+        process::Status status=proc.wait();
+        return status==process::STOP;
+    }
+    // 生成测试工具
+    AutoTest &AutoTest::gen(json &session){
+        // 初始化提示词
+        json &session=_history.get();
+        session.push_back({
+            { "role","user" },
+            { "content","完整题面为: "+_problem },
+            { "role","user" },
+            { "content","AC代码为: "+_ACCode }
+            });
+        // 保存
+        _history.save();
+        // 数据生成器
+        make(Generators,session);
+        // 数据校验器
+        make(Validators,session);
+        // 数据检查器
+        make(Checkers,session);
+        return *this;
+    }
     // 生成数据
     AutoTest &AutoTest::generate(){
         // 初始化提示词
@@ -613,28 +670,6 @@ namespace acm{
         process::Process proc_val("/bin/g++",args_val);
         proc_val.start();
         proc_val.wait();
-        return *this;
-    }
-    // 生成数据检查器
-    AutoTest &AutoTest::check(){
-        // 初始化提示词
-        json &session=_history.get();
-        // 生成数据检查器
-        string prompt=_prompt[f(Checkers)];
-        // 处理请求
-        AI(prompt,session);
-        _testlog.tlog("数据检查器生成成功");
-        // 读取数据
-        json result=json::parse(string(session.back()["content"]));
-        string code=result["code"];
-        // 写入文件
-        wfile(_basePath/"check.cpp",code);
-        // 编译文件
-        process::Args args_check("g++");
-        args_check.add("check.cpp").add("-o").add("check");
-        process::Process proc_check("/bin/g++",args_check);
-        proc_check.start();
-        proc_check.wait();
         return *this;
     }
     // 开始自动对拍

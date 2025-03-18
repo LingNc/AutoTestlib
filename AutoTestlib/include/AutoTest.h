@@ -14,7 +14,6 @@
 
 namespace acm{
     using nlohmann::json;
-
     // 自动测试类
     class AutoTest{
         // 配置文件
@@ -108,10 +107,12 @@ namespace acm{
         bool load(const fs::path &path);
         // 初始化结构
         bool init();
-        // 生成数据
-        AutoTest &generate();
-        // 测试数据
-        AutoTest &check();
+        // 测试工具生成编译
+        bool make(ConfigSign name,json &session);
+        // 生成测试工具
+        AutoTest &gen(json &session);
+        // 进行测试
+        AutoTest &run(ConfigSign name);
         // 开始自动对拍
         AutoTest &start();
         // 析构函数

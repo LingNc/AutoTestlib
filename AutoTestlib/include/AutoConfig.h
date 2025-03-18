@@ -34,6 +34,7 @@ namespace acm{
         Validators, //> 验证器
         Checkers, //> 检查器
         Interactors, //> 交互器
+        System, //> 系统
     };
     // 配置类
     class AutoConfig{
