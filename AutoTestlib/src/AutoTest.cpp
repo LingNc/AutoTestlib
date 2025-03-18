@@ -622,54 +622,13 @@ namespace acm{
         _history.save();
         // 数据生成器
         make(Generators,session);
+        _history.save();
         // 数据校验器
         make(Validators,session);
+        _history.save();
         // 数据检查器
         make(Checkers,session);
-        return *this;
-    }
-    // 生成数据
-    AutoTest &AutoTest::generate(){
-        // 初始化提示词
-        json &session=_history.get();
-        session.push_back({
-            { "role","user" },
-            { "content","完整题面为: "+_problem },
-            { "role","user" },
-            { "content","AC代码为: "+_ACCode }
-            });
-        // 生成数据生成器
-        string prompt=_prompt[f(Generators)];
-        // 处理请求
-        AI(prompt,session);
-        _testlog.tlog("数据生成器生成成功");
-        // 读取数据
-        json result=json::parse(string(session.back()["content"]));
-        string code=result["code"];
-        // 写入文件
-        wfile(_basePath/"generate.cpp",code);
-        // 编译文件
-        process::Args args_gen("g++");
-        args_gen.add("generate.cpp").add("-o").add("generate");
-        process::Process proc_gen("/bin/g++",args_gen);
-        proc_gen.start();
-        proc_gen.wait();
-        // 生成数据校验器
-        prompt=_prompt[f(Validators)];
-        // 处理请求
-        AI(prompt,session);
-        _testlog.tlog("数据校验器生成成功");
-        // 读取数据
-        result=json::parse(string(session.back()["content"]));
-        code=result["code"];
-        // 写入文件
-        wfile(_basePath/"validate.cpp",code);
-        // 编译文件
-        process::Args args_val("g++");
-        args_val.add("validate.cpp").add("-o").add("validate");
-        process::Process proc_val("/bin/g++",args_val);
-        proc_val.start();
-        proc_val.wait();
+        _history.save();
         return *this;
     }
     // 开始自动对拍
@@ -677,14 +636,6 @@ namespace acm{
         // 检查路径上的所有目录是否存在
         if(!fs::exists(_basePath)){
             fs::create_directories(_basePath);
-        }
-        // 检查生成器是否生成
-        if(!fs::exists(_basePath/"generate")){
-            generate();
-        }
-        // 检查检查器是否生成
-        if(!fs::exists(_basePath/"check")){
-            check();
         }
         // 运行
 
