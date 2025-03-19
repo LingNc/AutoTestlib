@@ -37,6 +37,11 @@ namespace acm{
         System, //> 系统
         DataNum, //> 数据计数
         NowData, //> 现在的数据位置
+        AC_Code, //> AC代码
+        Test_Code, //> 测试代码
+        TimeLimit, //> 时间限制
+        MemLimit, //> 内存限制
+        JudgeStatus, //> 判题状态
     };
     // 配置类
     class AutoConfig{

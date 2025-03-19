@@ -1,4 +1,5 @@
 #include "AutoTest.h"
+#include "Judge.h"
 
 namespace acm{
     void AutoTest::wfile(const fs::path &path,const string &code){
@@ -520,6 +521,13 @@ namespace acm{
         _log.tlog("初始化成功,文件夹在: "+_basePath.string());
         // 初始化历史记录
         init_system();
+        // 初始化错误样例集合
+        _WAdatas.set_path(_basePath/"WAdatas.json");
+        if(!_WAdatas.exist()){
+            _log.tlog("正在初始化错误样例集合");
+            _WAdatas.get()=json::array();
+            _WAdatas.save();
+        }
         return true;
     }
     // 载入已经存在的文件夹
@@ -580,6 +588,13 @@ namespace acm{
         _AI.setToken(_openaiKey.get());
         // 初始化系统提示词
         init_system();
+        // 读入错误样例集合
+        _WAdatas.set_path(_basePath/"WAdatas.json");
+        if(!_WAdatas.exist()){
+            _log.tlog("错误样例集合不存在,正在重建",loglib::WARNING);
+            _WAdatas.get()=json::array();
+            _WAdatas.save();
+        }
         _log.tlog("载入"+_name+"成功");
         _testlog.tlog("重新载入成功");
         return true;
@@ -668,7 +683,7 @@ namespace acm{
         return *this;
     }
     // 运行测试
-    process::Process &AutoTest::run(ConfigSign name){
+    AutoTest::Exit AutoTest::run(ConfigSign name){
         // 运行测试
         string nameStr;
         fs::path runfile=_basePath;
@@ -686,6 +701,8 @@ namespace acm{
         }
         process::Args args;
         process::Process proc;
+        // 返回值
+        Exit res;
         switch(name){
         case Generators:
             nameStr="数据生成器";
@@ -701,7 +718,10 @@ namespace acm{
             proc.load(runfile,args);
             _testlog.tlog("正在运行"+nameStr);
             proc.start();
-            return proc;
+            // 等待运行结束
+            res.status=proc.wait();;
+            res.exit_code=proc.get_exit_code();
+            break;
         case Validators:
             nameStr="数据验证器";
             runfile/=f(name);
@@ -709,7 +729,10 @@ namespace acm{
             proc.load(runfile,args);
             _testlog.tlog("正在运行"+nameStr);
             proc.start();
-            return proc;
+            // 等待运行结束
+            res.status=proc.wait();
+            res.exit_code=proc.get_exit_code();
+            break;
         case Checkers:
             nameStr="数据检查器";
             runfile/=f(name);
@@ -717,7 +740,10 @@ namespace acm{
             proc.load(runfile,args);
             _testlog.tlog("正在运行"+nameStr);
             proc.start();
-            return proc;
+            // 等待运行结束
+            res.status=proc.wait();
+            res.exit_code=proc.get_exit_code();
+            break;
         case Interactors:
             nameStr="数据交互器";
             runfile/=f(name);
@@ -725,21 +751,144 @@ namespace acm{
             proc.load(runfile,args);
             _testlog.tlog("正在运行"+nameStr);
             proc.start();
-            auto temp=proc.wait();
-            if(temp==process::STOP){
-                _testlog.tlog(nameStr+"运行成功");
-            }
-            else{
-                _testlog.tlog(nameStr+"运行失败",loglib::ERROR);
-            }
-            return proc;
+            // 等待运行结束
+            res.status=proc.wait();
+            res.exit_code=proc.get_exit_code();
+            break;
+        case AC_Code:
+            // 运行AC代码
+            nameStr="AC代码";
+            runfile=_ACfile;
+            args.add(_ACfile).add("<").add(inDataPath/(_config[f(NowData)]+".in")).add(">").add(outDataPath/(_config[f(NowData)]+".out"));
+            proc.load(runfile,args);
+            _testlog.tlog("正在运行"+nameStr);
+            proc.set_timeout(_config[f(TimeLimit)]);
+            proc.set_memout(_config[f(MemLimit)]);
+            proc.start();
+            // 等待运行结束
+            res.status=proc.wait();
+            res.exit_code=proc.get_exit_code();
+            break;
+        case Test_Code:
+            // 运行测试代码
+            nameStr="测试代码";
+            runfile=_testfile;
+            args.add(_testfile).add("<").add(inDataPath/(_config[f(NowData)]+".in")).add(">").add(outDataPath/(_config[f(NowData)]+".out"));
+            proc.load(runfile,args);
+            _testlog.tlog("正在运行"+nameStr);
+            proc.set_timeout(_config[f(TimeLimit)]);
+            proc.set_memout(_config[f(MemLimit)]);
+            proc.start();
+            // 等待运行结束
+            res.status=proc.wait();
+            res.exit_code=proc.get_exit_code();
+            break;
+        default:
+            _log.tlog("未知运行文件: "+f(name),loglib::ERROR);
+            std::runtime_error("未知运行文件: "+f(name));
         }
-        _log.tlog("未知运行文件: "+f(name),loglib::ERROR);
-        return proc;
+        return res;
     }
     // 开始自动对拍
-    AutoTest &AutoTest::start(){
-        // 运行
+    bool AutoTest::start(){
+        // 检测是否已经编译和生成
+        if(fs::exists(f(Generators))&&fs::exists(f(Validators))&&fs::exists(f(Checkers))){
+            _log.tlog("测试文件已经编译,开始自动对拍");
+        }
+        else{
+            _log.tlog("测试文件不存在,请先编译",loglib::ERROR);
+            return false;
+        }
+        // 开始运行
+        // 循环验证数据直到找到不一致的数据
+        int error_nums=0;
+        while(true){
+            int num=_config[f(DataNum)];
+            _testlog.tlog("正在运行第"+std::to_string(num)+"个测试点");
+            // 生成数据并检查数据是否符合要求
+            Exit res=run(Generators);
+            if(res.status==process::STOP){
+                _testlog.tlog("数据生成器运行成功");
+            }
+            else{
+                _testlog.tlog("数据生成器运行失败",loglib::ERROR);
+                return false;
+            }
+            // 运行数据验证器
+            res=run(Validators);
+            if(res.status==process::STOP){
+                _testlog.tlog("数据验证成功");
+            }
+            else if(res.status==process::ERROR){
+                _testlog.tlog("本次数据生成不符合要求，正在重新生成",loglib::WARNING);
+                // 重置计数
+                _config[f(DataNum)]==_config[f(DataNum)]-1;
+                _config.save();
+                // 重新生成本次数据
+                continue;
+            }
+            else{
+                _testlog.tlog("数据验证器运行失败",loglib::ERROR);
+                return false;
+            }
+            // 运行Test代码获得对应输出
+            res=run(Test_Code);
+            if(res.status==process::STOP){
+                _testlog.tlog("测试代码运行成功");
+                JudgeCode temp=judge(res.status,res.exit_code);
+                _config[f(JudgeStatus)]=f(temp);
+                _config.save();
+                if(temp!=Waiting){
+                    // 代码已经出错
+                    error_nums++;
+                    _testlog.tlog("判题结果: "+f(temp));
 
+                }
+            }
+            else{
+                _testlog.tlog("测试代码运行失败",loglib::ERROR);
+                return false;
+            }
+            // 运行AC代码
+            res=run(AC_Code);
+            if(res.status==process::STOP){
+                _testlog.tlog("AC代码运行成功");
+                JudgeCode temp=judge(res.status,res.exit_code);
+                if(temp!=Waiting){
+                    _testlog.tlog("AC代码出现问题, 状态: "+f(temp),loglib::ERROR);
+                    return false;
+                }
+            }
+            else{
+                _testlog.tlog("AC代码运行失败",loglib::ERROR);
+                return false;
+            }
+            // 运行数据检查器
+            res=run(Checkers);
+            if(res.status==process::STOP){
+                _config[f(JudgeStatus)]=f(Accept);
+                _testlog.tlog(string(_config[f(NowData)])+": "+f(Accept));
+            }
+            else if(res.status==process::ERROR){
+                // 获取非零状态码
+                if(WIFEXITED(res.exit_code)){
+                    int actual_code=WEXITSTATUS(res.exit_code);
+                    if(actual_code==1){
+                        _config[f(JudgeStatus)]=f(WrongAnswer);
+                    }
+                    else if(actual_code==2){
+                        _config[f(JudgeStatus)]=f(PresentationError);
+                    }
+                    else{
+                        _config[f(JudgeStatus)]=f(RuntimeError);
+                    }
+                }
+                return false;
+            }
+            else{
+                _testlog.tlog("数据检查器运行失败",loglib::ERROR);
+                return false;
+            }
+        }
     }
 };

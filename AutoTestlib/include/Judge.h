@@ -20,6 +20,7 @@ namespace acm{
         PresentationError
     };
     JudgeCode judge(process::Status status,int exit_code);
+    string f(JudgeCode type);
 }
 
 #endif

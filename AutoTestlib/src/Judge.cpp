@@ -1,6 +1,36 @@
 #include "Judge.h"
 
 namespace acm{
+    string f(JudgeCode type){
+        switch(type){
+        case Waiting:
+            return "Waiting";
+        case Compiling:
+            return "Compiling";
+        case Queuing:
+            return "Queuing";
+        case Accept:
+            return "Accept";
+        case CompilationError:
+            return "CompilationError";
+        case WrongAnswer:
+            return "WrongAnswer";
+        case TimeLimitEXceeded:
+            return "TimeLimitEXceeded";
+        case MemoryLimitExceeded:
+            return "MemoryLimitExceeded";
+        case OutputLimitExceeded:
+            return "OutputLimitExceeded";
+        case FloatingPointError:
+            return "FloatingPointError";
+        case RuntimeError:
+            return "RuntimeError";
+        case PresentationError:
+            return "PresentationError";
+        default:
+            throw std::runtime_error("未知判题状态");
+        }
+    }
     JudgeCode judge(process::Status status,int exit_code){
         // 首先检查是否已经标记为超时
         if(status==process::TIMEOUT){

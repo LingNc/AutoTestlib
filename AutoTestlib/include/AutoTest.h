@@ -61,8 +61,6 @@ namespace acm{
         AutoConfig _history;
         // 初始化系统提示词,以及初始化历史记录
         void init_system();
-        // 对话内容
-        json _content;
         // 对话
         json chat(const json &prompt,ConfigSign type=Model);
         // 获取题目名称
@@ -81,6 +79,10 @@ namespace acm{
         string get_docs(const string &DocsName);
         // 完整性验证
         bool full_check();
+        // 错误样例集合
+        AutoConfig _WAdatas;
+        // 修改源文件目录下.cph配置，将错误样例自动加入
+        // void add_WAdatas(const string &code);
     public:
         // 构造函数
         AutoTest(const string &name="");
@@ -111,10 +113,15 @@ namespace acm{
         bool make(ConfigSign name,json &session);
         // 生成测试工具
         AutoTest &gen(json &session);
+        // 退出状态
+        struct Exit{
+            process::Status status;
+            int exit_code;
+        };
         // 进行测试
-        process::Process &run(ConfigSign name);
+        Exit run(ConfigSign name);
         // 开始自动对拍
-        AutoTest &start();
+        bool start();
         // 析构函数
         ~AutoTest();
     };

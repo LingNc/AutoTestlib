@@ -42,6 +42,16 @@ namespace acm{
             return "data_num";
         case NowData:
             return "now_data";
+        case AC_Code:
+            return "ac_code";
+        case Test_Code:
+            return "test_code";
+        case TimeLimit:
+            return "time_limit";
+        case MemLimit:
+            return "mem_limit";
+        case JudgeStatus:
+            return "judge_status";
         default:
             throw std::runtime_error("未知配置项");
         }
