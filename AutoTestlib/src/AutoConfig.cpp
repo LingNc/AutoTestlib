@@ -38,6 +38,10 @@ namespace acm{
             return "checkers";
         case Interactors:
             return "interactors";
+        case DataNum:
+            return "data_num";
+        case NowData:
+            return "now_data";
         default:
             throw std::runtime_error("未知配置项");
         }

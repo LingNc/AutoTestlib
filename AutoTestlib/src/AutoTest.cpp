@@ -15,6 +15,10 @@ namespace acm{
     }
     // 读取文件
     string AutoTest::rfile(const fs::path &path){
+        if(!fs::exists(path)){
+            _log.tlog("文件不存在: "+path.string(),loglib::ERROR);
+            return "";
+        }
         std::ifstream file(path);
         if(!file.is_open()){
             throw std::runtime_error("无法打开文件: "+path.string());
@@ -235,6 +239,8 @@ namespace acm{
             _config[f(Test_Name)]=_name;
             // 默认跟随全局配置
             _config[f(Attach_Global)]=true;
+            // 生成测试数量，以及提供的初始化随机数值
+            _config[f(DataNum)]=0;
             _config.save();
         }
     }
@@ -246,11 +252,19 @@ namespace acm{
         // 初始化文档文件夹
         _log.log("正在读取Testlib文档");
         // 读取文档
-        _docs["Total"]=rfile(path/"Testlib_Total.md");
-        _docs[f(Generators)]=rfile(path/"Testlib_Generators.md");
-        _docs[f(Validators)]=rfile(path/"Testlib_Validators.md");
-        _docs[f(Checkers)]=rfile(path/"Testlib_Checkers.md");
-        _docs[f(Interactors)]=rfile(path/"Testlib_Interactors.md");
+        auto &_docs_origin=_docs["origin"];
+        _docs_origin["Total"]=rfile(path/"Testlib_Total.md");
+        _docs_origin[f(Generators)]=rfile(path/"Testlib_Generators.md");
+        _docs_origin[f(Validators)]=rfile(path/"Testlib_Validators.md");
+        _docs_origin[f(Checkers)]=rfile(path/"Testlib_Checkers.md");
+        _docs_origin[f(Interactors)]=rfile(path/"Testlib_Interactors.md");
+        auto &_docs_new=_docs["new"];
+        _docs_new["index"]=rfile(path/"index.md");
+        _docs_new["general"]=rfile(path/"general.md");
+        _docs_new[f(Generators)]=rfile(path/"generator.md");
+        _docs_new[f(Validators)]=rfile(path/"validator.md");
+        _docs_new[f(Checkers)]=rfile(path/"checker.md");
+        _docs_new[f(Interactors)]=rfile(path/"interactor.md");
     }
     // 加载Prompt
     void AutoTest::init_prompt(const fs::path &path){
@@ -620,23 +634,111 @@ namespace acm{
             });
         // 保存
         _history.save();
+        bool temp;
         // 数据生成器
-        make(Generators,session);
-        _history.save();
+        temp=make(Generators,session);
+        if(temp){
+            _history.save();
+            _testlog.tlog("数据生成器生成成功");
+        }
+        else{
+            _testlog.tlog("数据生成器生成失败",loglib::ERROR);
+            return *this;
+        }
         // 数据校验器
-        make(Validators,session);
-        _history.save();
+        temp=make(Validators,session);
+        if(temp){
+            _history.save();
+            _testlog.tlog("数据校验器生成成功");
+        }
+        else{
+            _testlog.tlog("数据校验器生成失败",loglib::ERROR);
+            return *this;
+        }
         // 数据检查器
-        make(Checkers,session);
-        _history.save();
+        temp=make(Checkers,session);
+        if(temp){
+            _history.save();
+            _testlog.tlog("数据检查器生成成功");
+        }
+        else{
+            _testlog.tlog("数据检查器生成失败",loglib::ERROR);
+            return *this;
+        }
         return *this;
+    }
+    // 运行测试
+    process::Process &AutoTest::run(ConfigSign name){
+        // 运行测试
+        string nameStr;
+        fs::path runfile=_basePath;
+        fs::path inDataPath=_basePath/"inData";
+        fs::path outDataPath=_basePath/"outData";
+        fs::path acDataPath=_basePath/"acData";
+        if(!fs::exists(inDataPath)){
+            fs::create_directories(inDataPath);
+        }
+        if(!fs::exists(outDataPath)){
+            fs::create_directories(outDataPath);
+        }
+        if(!fs::exists(acDataPath)){
+            fs::create_directories(acDataPath);
+        }
+        process::Args args;
+        process::Process proc;
+        switch(name){
+        case Generators:
+            nameStr="数据生成器";
+            runfile/=f(name);
+            // 读取计数
+            int num=_config[f(DataNum)];
+            num++;
+            _config[f(DataNum)]=num;
+            // 更新文件
+            _config[f(NowData)]="data"+std::to_string(num);
+            _config.save();
+            args.add(f(name)).add(std::to_string(num)).add(">").add(inDataPath/(_config[f(NowData)]+".in"));
+            proc.load(runfile,args);
+            _testlog.tlog("正在运行"+nameStr);
+            proc.start();
+            return proc;
+        case Validators:
+            nameStr="数据验证器";
+            runfile/=f(name);
+            args.add(f(name)).add("<").add(inDataPath/(_config[f(NowData)]+".in"));
+            proc.load(runfile,args);
+            _testlog.tlog("正在运行"+nameStr);
+            proc.start();
+            return proc;
+        case Checkers:
+            nameStr="数据检查器";
+            runfile/=f(name);
+            args.add(f(name)).add(inDataPath/(_config[f(NowData)]+".in")).add(outDataPath/(_config[f(NowData)]+".out")).add(acDataPath/(_config[f(NowData)]+".out"));
+            proc.load(runfile,args);
+            _testlog.tlog("正在运行"+nameStr);
+            proc.start();
+            return proc;
+        case Interactors:
+            nameStr="数据交互器";
+            runfile/=f(name);
+            args.add(f(name));
+            proc.load(runfile,args);
+            _testlog.tlog("正在运行"+nameStr);
+            proc.start();
+            auto temp=proc.wait();
+            if(temp==process::STOP){
+                _testlog.tlog(nameStr+"运行成功");
+            }
+            else{
+                _testlog.tlog(nameStr+"运行失败",loglib::ERROR);
+            }
+            return proc;
+        }
+        _log.tlog("未知运行文件: "+f(name),loglib::ERROR);
+        return proc;
     }
     // 开始自动对拍
     AutoTest &AutoTest::start(){
-        // 检查路径上的所有目录是否存在
-        if(!fs::exists(_basePath)){
-            fs::create_directories(_basePath);
-        }
         // 运行
 
     }

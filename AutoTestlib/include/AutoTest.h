@@ -112,7 +112,7 @@ namespace acm{
         // 生成测试工具
         AutoTest &gen(json &session);
         // 进行测试
-        AutoTest &run(ConfigSign name);
+        process::Process &run(ConfigSign name);
         // 开始自动对拍
         AutoTest &start();
         // 析构函数

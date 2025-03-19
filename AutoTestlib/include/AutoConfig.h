@@ -35,6 +35,8 @@ namespace acm{
         Checkers, //> 检查器
         Interactors, //> 交互器
         System, //> 系统
+        DataNum, //> 数据计数
+        NowData, //> 现在的数据位置
     };
     // 配置类
     class AutoConfig{
