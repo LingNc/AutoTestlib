@@ -81,8 +81,12 @@ namespace acm{
         bool full_check();
         // 错误样例集合
         AutoConfig _WAdatas;
+        // cph路径
+        fs::path _cph=".";
+        // 设置cph路径
+        bool set_cph(const fs::path &path);
         // 修改源文件目录下.cph配置，将错误样例自动加入
-        // void add_WAdatas(const string &code);
+        void add_to_cph(const string &in,const string &out);
     public:
         // 构造函数
         AutoTest(const string &name="");

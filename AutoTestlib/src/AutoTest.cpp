@@ -1,5 +1,6 @@
 #include "AutoTest.h"
 #include "Judge.h"
+#include "fstream"
 
 namespace acm{
     void AutoTest::wfile(const fs::path &path,const string &code){
@@ -379,6 +380,8 @@ namespace acm{
             _log.tlog("测试代码文件为空: "+path.string(),loglib::ERROR);
             return false;
         }
+        // 设置cph路径
+        set_cph(path.parent_path()/".cph");
         return true;
     }
     // 设置AC代码
@@ -406,6 +409,15 @@ namespace acm{
             _log.tlog("AC代码文件为空: "+path.string(),loglib::ERROR);
             return false;
         }
+        return true;
+    }
+    bool AutoTest::set_cph(const fs::path &path){
+        // 检查文件夹是否存在
+        if(!fs::exists(path)){
+            _log.tlog("cph文件夹不存在: "+path.string(),loglib::WARNING);
+            return false;
+        }
+        _cph=path;
         return true;
     }
     // 完整性验证
@@ -838,12 +850,6 @@ namespace acm{
                 JudgeCode temp=judge(res.status,res.exit_code);
                 _config[f(JudgeStatus)]=f(temp);
                 _config.save();
-                if(temp!=Waiting){
-                    // 代码已经出错
-                    error_nums++;
-                    _testlog.tlog("判题结果: "+f(temp));
-
-                }
             }
             else{
                 _testlog.tlog("测试代码运行失败",loglib::ERROR);
@@ -862,6 +868,20 @@ namespace acm{
             else{
                 _testlog.tlog("AC代码运行失败",loglib::ERROR);
                 return false;
+            }
+            // 如果已经判题失败
+            if(_config[f(JudgeStatus)]!=f(Waiting)){
+                error_nums+=1;
+                _testlog.tlog("第"+std::to_string(num)+"个测试点,状态: "+string(_config[f(JudgeStatus)]));
+                // 把样例 in和out 加入错误集合
+                string in=rfile(_basePath/"inData"/(_config[f(NowData)]+".in"));
+                string out=rfile(_basePath/"acData"/(_config[f(NowData)]+".out"));
+                json temp={
+                    { "in",in },
+                    { "out",out }
+                };
+                _WAdatas.get().push_back(temp);
+                _WAdatas.save();
             }
             // 运行数据检查器
             res=run(Checkers);
@@ -890,5 +910,77 @@ namespace acm{
                 return false;
             }
         }
+    }
+    void AutoTest::add_to_cph(const string &in,const string &out){
+        // 如果cph路径被赋值才会执行
+        if(_cph=="."||_cph.empty()){
+            return;
+        }
+        // 在cph文件夹中找到包含name的文件
+        std::vector<fs::path> matched_files;
+
+        try{
+            // 遍历CPH文件夹中的所有文件
+            for(const auto &entry:fs::directory_iterator(_cph)){
+                // 检查是否是文件且文件名包含指定的字符串
+                if(fs::is_regular_file(entry)&&entry.path().filename().string().find(_name)!=string::npos){
+                    matched_files.push_back(entry.path());
+                    _testlog.tlog("找到匹配的CPH文件: "+entry.path().string());
+                }
+            }
+
+            if(matched_files.empty()){
+                _testlog.tlog("CPH: 未找到包含 "+_name+" 的CPH文件",loglib::WARNING);
+                return;
+            }
+
+            // 对找到的文件执行操作...
+            // 例如，可以将 in 和 out 添加到这些文件中
+            for(const auto &file:matched_files){
+                _testlog.tlog("CPH: 处理文件: "+file.string());
+                // 具体的处理逻辑...
+            }
+        }
+        catch(const std::exception &e){
+            _testlog.tlog("CPH: 查找文件时出错: "+string(e.what()),loglib::ERROR);
+        }
+        // 以json的方式打开这个文件
+        fs::path first_file=matched_files[0];
+        json cph_json;
+        // 读取json文件
+        try{
+            // 读取JSON文件内容
+            string file_content=rfile(first_file);
+            // 解析JSON内容
+            cph_json=json::parse(file_content);
+            // 添加测试数据
+            if(cph_json.contains("tests")){
+                // 读取错误样例集合最后一个
+                json temp=_WAdatas.get().back();
+
+                // 创建新的测试用例
+                json new_test={
+                    { "id",cph_json["tests"].size()+1 },
+                    { "input",temp["in"] },
+                    { "output",temp["out"] }
+                };
+                // 添加到测试用例列表
+                cph_json["tests"].push_back(new_test);
+                // 写回文件
+                wfile(first_file,cph_json.dump());
+
+                _testlog.tlog("成功添加测试用例到CPH文件");
+            }
+            else{
+                _testlog.tlog("CPH文件格式不正确，没有tests字段",loglib::WARNING);
+            }
+        }
+        catch(const json::exception &e){
+            _testlog.tlog("CPH: JSON解析失败: "+string(e.what()),loglib::ERROR);
+        }
+        catch(const std::exception &e){
+            _testlog.tlog("CPH: 读取或写入文件失败: "+string(e.what()),loglib::ERROR);
+        }
+
     }
 };
