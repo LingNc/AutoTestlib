@@ -47,7 +47,7 @@ namespace acm{
             return _AI.chat.create({
                 { "model",_setting[f(type)] },
                 { "messages",prompt },
-                { "tool",_tools },
+                { "tools",_tools },
                 { "tool_choice","auto" },
                 { "response_format",{ "type","json_object" } },
                 _setting[f(Model_Config)]
@@ -121,6 +121,7 @@ namespace acm{
             _testlog.tlog("自动命名成功: "+tempName);
             return tempName;
         }
+        return _name;
     }
     // AI，自动处理工具调用
     int AutoTest::AI(const string &prompt,json &session,ConfigSign useModel){
@@ -204,7 +205,7 @@ namespace acm{
                 { "properties",{
                     { "DocsName",{
                         { "type","string" },
-                { "description","文档的名称，有五个参数候选项可以选择: \"Total\",\"\"Generators\",\"Validators\",\"Checkers\",\"Interactors\"。" }
+                { "description","文档的名称，有五个参数候选项可以选择: \"Total\",\"Generators\",\"Validators\",\"Checkers\",\"Interactors\"。" }
             } }
             } },
                 { "required",json::array({ "DocsName" }) }
@@ -331,6 +332,7 @@ namespace acm{
             return false;
         }
         _name=name;
+        return true;
     }
     // 设置题目
     bool AutoTest::set_problem(const string &problem){
@@ -635,7 +637,14 @@ namespace acm{
         AI(prompt,session);
         _testlog.tlog(nameStr+"生成成功");
         // 读取数据
-        json result=json::parse(string(session.back()["content"]));
+        json result;
+        try{
+            result=json::parse(string(session.back()["content"]));
+        }
+        catch(const json::exception &e){
+            _testlog.tlog("JSON解析失败: "+string(e.what()),loglib::ERROR);
+            return false;
+        }
         string code=result["code"];
         // 写入文件
         string fileName=f(name);
@@ -650,7 +659,7 @@ namespace acm{
         return status==process::STOP;
     }
     // 生成测试工具
-    AutoTest &AutoTest::gen(json &session){
+    AutoTest &AutoTest::gen(){
         // 初始化提示词
         json &session=_history.get();
         session.push_back({
@@ -699,18 +708,27 @@ namespace acm{
         // 运行测试
         string nameStr;
         fs::path runfile=_basePath;
-        fs::path inDataPath=_basePath/"inData";
-        fs::path outDataPath=_basePath/"outData";
-        fs::path acDataPath=_basePath/"acData";
-        if(!fs::exists(inDataPath)){
-            fs::create_directories(inDataPath);
+        // 统一创建所需文件夹
+        std::vector<fs::path> dataDirs={
+            _basePath/"inData",
+            _basePath/"outData",
+            _basePath/"acData"
+        };
+
+        for(const auto &dir:dataDirs){
+            if(!fs::exists(dir)){
+                try{
+                    fs::create_directories(dir);
+                }
+                catch(const fs::filesystem_error &e){
+                    _testlog.tlog("创建目录失败: "+dir.string()+" - "+e.what(),loglib::ERROR);
+                    Exit res;
+                    res.status=process::ERROR;
+                    return res;
+                }
+            }
         }
-        if(!fs::exists(outDataPath)){
-            fs::create_directories(outDataPath);
-        }
-        if(!fs::exists(acDataPath)){
-            fs::create_directories(acDataPath);
-        }
+
         process::Args args;
         process::Process proc;
         // 返回值
@@ -726,7 +744,7 @@ namespace acm{
             // 更新文件
             _config[f(NowData)]="data"+std::to_string(num);
             _config.save();
-            args.add(f(name)).add(std::to_string(num)).add(">").add(inDataPath/(_config[f(NowData)]+".in"));
+            args.add(f(name)).add(std::to_string(num)).add(">").add(dataDirs[0]/(_config[f(NowData)]+".in"));
             proc.load(runfile,args);
             _testlog.tlog("正在运行"+nameStr);
             proc.start();
@@ -737,7 +755,7 @@ namespace acm{
         case Validators:
             nameStr="数据验证器";
             runfile/=f(name);
-            args.add(f(name)).add("<").add(inDataPath/(_config[f(NowData)]+".in"));
+            args.add(f(name)).add("<").add(dataDirs[1]/(_config[f(NowData)]+".in"));
             proc.load(runfile,args);
             _testlog.tlog("正在运行"+nameStr);
             proc.start();
@@ -748,7 +766,7 @@ namespace acm{
         case Checkers:
             nameStr="数据检查器";
             runfile/=f(name);
-            args.add(f(name)).add(inDataPath/(_config[f(NowData)]+".in")).add(outDataPath/(_config[f(NowData)]+".out")).add(acDataPath/(_config[f(NowData)]+".out"));
+            args.add(f(name)).add(dataDirs[0]/(_config[f(NowData)]+".in")).add(dataDirs[1]/(_config[f(NowData)]+".out")).add(dataDirs[2]/(_config[f(NowData)]+".out"));
             proc.load(runfile,args);
             _testlog.tlog("正在运行"+nameStr);
             proc.start();
@@ -771,7 +789,7 @@ namespace acm{
             // 运行AC代码
             nameStr="AC代码";
             runfile=_ACfile;
-            args.add(_ACfile).add("<").add(inDataPath/(_config[f(NowData)]+".in")).add(">").add(outDataPath/(_config[f(NowData)]+".out"));
+            args.add(_ACfile).add("<").add(dataDirs[0]/(_config[f(NowData)]+".in")).add(">").add(dataDirs[1]/(_config[f(NowData)]+".out"));
             proc.load(runfile,args);
             _testlog.tlog("正在运行"+nameStr);
             proc.set_timeout(_config[f(TimeLimit)]);
@@ -785,7 +803,7 @@ namespace acm{
             // 运行测试代码
             nameStr="测试代码";
             runfile=_testfile;
-            args.add(_testfile).add("<").add(inDataPath/(_config[f(NowData)]+".in")).add(">").add(outDataPath/(_config[f(NowData)]+".out"));
+            args.add(_testfile).add("<").add(dataDirs[0]/(_config[f(NowData)]+".in")).add(">").add(dataDirs[1]/(_config[f(NowData)]+".out"));
             proc.load(runfile,args);
             _testlog.tlog("正在运行"+nameStr);
             proc.set_timeout(_config[f(TimeLimit)]);
@@ -797,7 +815,7 @@ namespace acm{
             break;
         default:
             _log.tlog("未知运行文件: "+f(name),loglib::ERROR);
-            std::runtime_error("未知运行文件: "+f(name));
+            throw std::runtime_error("未知运行文件: "+f(name));
         }
         return res;
     }
@@ -834,7 +852,7 @@ namespace acm{
             else if(res.status==process::ERROR){
                 _testlog.tlog("本次数据生成不符合要求，正在重新生成",loglib::WARNING);
                 // 重置计数
-                _config[f(DataNum)]==_config[f(DataNum)]-1;
+                _config[f(DataNum)]=_config[f(DataNum)]-1;
                 _config.save();
                 // 重新生成本次数据
                 continue;

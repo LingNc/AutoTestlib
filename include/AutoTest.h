@@ -118,7 +118,7 @@ namespace acm{
         // 测试工具生成编译
         bool make(ConfigSign name,json &session);
         // 生成测试工具
-        AutoTest &gen(json &session);
+        AutoTest &gen();
         // 退出状态
         struct Exit{
             process::Status status;
