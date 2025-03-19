@@ -150,7 +150,10 @@ namespace process{
         waitpid(_pid,&status,0);
         _exit_code=status;
         _pid=-1;
-        if(WIFEXITED(status)){
+        if(_status==TIMEOUT){
+            return _status;
+        }
+        else if(WIFEXITED(status)){
             int temp=WEXITSTATUS(status);
             if(temp==0){
                 _status=STOP;
