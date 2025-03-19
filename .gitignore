@@ -4,5 +4,8 @@
 **/*.key
 
 !.gitignore
-!ask.py
-!.README.md
+!*.cpp
+!*.hpp
+!*.h
+!*.md
+!Makefile
