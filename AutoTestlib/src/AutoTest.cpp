@@ -869,25 +869,20 @@ namespace acm{
                 _testlog.tlog("AC代码运行失败",loglib::ERROR);
                 return false;
             }
-            // 如果已经判题失败
+            // 如果已经判题
             if(_config[f(JudgeStatus)]!=f(Waiting)){
                 error_nums+=1;
                 _testlog.tlog("第"+std::to_string(num)+"个测试点,状态: "+string(_config[f(JudgeStatus)]));
-                // 把样例 in和out 加入错误集合
-                string in=rfile(_basePath/"inData"/(_config[f(NowData)]+".in"));
-                string out=rfile(_basePath/"acData"/(_config[f(NowData)]+".out"));
-                json temp={
-                    { "in",in },
-                    { "out",out }
-                };
-                _WAdatas.get().push_back(temp);
-                _WAdatas.save();
+                // 把当前样例加入错误集合
+                add_WAdatas();
+                return true;
             }
             // 运行数据检查器
             res=run(Checkers);
             if(res.status==process::STOP){
                 _config[f(JudgeStatus)]=f(Accept);
                 _testlog.tlog(string(_config[f(NowData)])+": "+f(Accept));
+                return true;
             }
             else if(res.status==process::ERROR){
                 // 获取非零状态码
@@ -902,14 +897,31 @@ namespace acm{
                     else{
                         _config[f(JudgeStatus)]=f(RuntimeError);
                     }
+                    _testlog.tlog("第"+std::to_string(num)+"个测试点,状态: "+string(_config[f(JudgeStatus)]));
+                    // 当前样例添加到错误集合
+                    add_WAdatas();
+                    return true;
                 }
-                return false;
+                else
+                    return false;
             }
             else{
                 _testlog.tlog("数据检查器运行失败",loglib::ERROR);
                 return false;
             }
         }
+    }
+    // 添加错误集合
+    void AutoTest::add_WAdatas(){
+        string in=rfile(_basePath/"inData"/(_config[f(NowData)]+".in"));
+        string out=rfile(_basePath/"acData"/(_config[f(NowData)]+".out"));
+        // 添加到错误样例集合
+        json temp={
+            { "in",in },
+            { "out",out }
+        };
+        _WAdatas.get().push_back(temp);
+        _WAdatas.save();
     }
     void AutoTest::add_to_cph(const string &in,const string &out){
         // 如果cph路径被赋值才会执行
@@ -981,6 +993,5 @@ namespace acm{
         catch(const std::exception &e){
             _testlog.tlog("CPH: 读取或写入文件失败: "+string(e.what()),loglib::ERROR);
         }
-
     }
 };

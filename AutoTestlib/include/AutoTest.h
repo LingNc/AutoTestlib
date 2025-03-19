@@ -81,6 +81,8 @@ namespace acm{
         bool full_check();
         // 错误样例集合
         AutoConfig _WAdatas;
+        // 添加当前样例到错误集合
+        void add_WAdatas();
         // cph路径
         fs::path _cph=".";
         // 设置cph路径
