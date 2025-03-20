@@ -165,7 +165,7 @@ namespace process{
             }
         }
         else if(WIFSIGNALED(status)){
-            int signal=WTERMSIG(status);
+            // int signal=WTERMSIG(status);
             _status=RE;
             return _status;
         }

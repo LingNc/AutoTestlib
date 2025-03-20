@@ -64,13 +64,20 @@ namespace acm{
     }
     // 设置路径
     void AutoConfig::set_path(const fs::path &file){
-        exist();
         _filePath=file;
+        exist();
         std::ifstream configfile(_filePath);
         if(!configfile.is_open()){
-            throw std::runtime_error("无法打开文件: "+_filePath.string());
+            // 文件不存在则创建新的文件
+            std::ofstream newFile(_filePath);
+            if(!newFile.is_open()){
+                throw std::runtime_error("AutoConfig: 无法创建文件: "+_filePath.string());
+            }
+            newFile.close();
+            _config=json::object();
         }
-        _config=json::parse(configfile);
+        else
+            _config=json::parse(configfile);
     }
     // 检查配置文件是否存在且不为空
     bool AutoConfig::exist(){
@@ -90,9 +97,9 @@ namespace acm{
     }
     // 保存到配置文件
     void AutoConfig::save(size_t dumpNum){
-        std::ofstream file(_filePath);
+        std::ofstream file(_filePath,std::ios::out);
         if(!file.is_open()){
-            throw std::runtime_error("无法打开文件: "+_filePath.string());
+            throw std::runtime_error("AutoConfig: 无法打开文件: "+_filePath.string());
         }
         file<<_config.dump(dumpNum);
         file.close();

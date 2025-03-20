@@ -77,15 +77,15 @@ namespace acm{
                 if(check_func_call(funcArgs,funcName).empty()){
                     string docsName=funcArgs["DocsName"];
                     temp["content"]=get_docs(docsName);
-                    _testlog.tlog(_setting[f(Model)]+"调用了函数: "+funcName+"参数: "+funcArgs.dump());
+                    _testlog.tlog(_setting[f(Model)].get<string>()+"调用了函数: "+funcName+"参数: "+funcArgs.dump());
                 }
             }
             else{
-                _testlog.tlog(_setting[f(Model)]+"使用了未知的函数: "+funcName,loglib::ERROR);
+                _testlog.tlog(_setting[f(Model)].get<string>()+"使用了未知的函数: "+funcName,loglib::ERROR);
                 // 获取函数列表
                 string funcList;
                 for(auto &tool:_tools){
-                    funcList+=tool["function"]["name"]+", ";
+                    funcList+=tool["function"]["name"].get<string>()+", ";
                 }
                 temp["content"]="你使用了未知函数: "+funcName+"应该使用的函数包括: "+funcList;
             }
@@ -101,8 +101,17 @@ namespace acm{
         string content;
         // 找不到参数，参数传入错误
         if(funcArgs.find("DocsName")==funcArgs.end()){
-            _testlog.tlog(_setting[f(Model)]+"使用了未知的参数名: "+funcArgs.dump(),loglib::ERROR);
-            content="你使用了函数"+funcName+"的未知参数: "+funcArgs.dump()+"应该传入参数是: DocsName,并指定参数可选的值";
+            _testlog.tlog(
+                _setting[f(Model)].get<string>()+
+                "使用了未知的参数名: "+
+                funcArgs.dump()
+                ,loglib::ERROR);
+            content=
+                "你使用了函数"+
+                funcName+
+                "的未知参数: "+
+                funcArgs.dump()+
+                "应该传入参数是: DocsName,并指定参数可选的值";
         }
         return content;
     }
@@ -253,7 +262,7 @@ namespace acm{
             throw std::runtime_error("文档文件夹不存在: "+path.string());
         }
         // 初始化文档文件夹
-        _log.log("正在读取Testlib文档");
+        _log.tlog("正在读取Testlib文档");
         // 读取文档
         auto &_docs_origin=_docs["origin"];
         _docs_origin["Total"]=rfile(path/"Testlib_Total.md");
@@ -300,8 +309,10 @@ namespace acm{
     }
     // 构造函数
     AutoTest::AutoTest(const string &name)
-        : _name(name),_openaiKey(_path/"openai.key"),
-        _setting(_path/"config.json"),_log(_path){
+        :_setting(_path/"config.json"),
+        _openaiKey(_path/"openai.key"),
+        _name(name),
+        _log(_path){
         // 设置日志总配置
         _log.set_logName("AutoTest.log");
         _log.tlog("AutoTest开始运行");
@@ -310,19 +321,23 @@ namespace acm{
         // 注册key
         init_key();
         // 默认文档读取
-        init_docs();
+        init_docs(_path/"docs");
         // 默认prompt读取
-        init_prompt();
+        init_prompt(_path/"prompt");
     }
     // 设置配置文件
     void AutoTest::config(ConfigSign config,ConfigSign value,ConfigSign target){
         if(target==Global){
             _setting[f(config)]=value;
-            _log.tlog("配置项: "+f(config)+" 设置为: "+f(value));
+            _log.tlog(
+                "配置项: "+f(config)+
+                " 设置为: "+f(value));
         }
         else{
             _config[f(config)]=value;
-            _testlog.tlog("配置项: "+f(config)+" 设置为: "+f(value));
+            _testlog.tlog(
+                "配置项: "+f(config)+
+                " 设置为: "+f(value));
         }
     }
     // 设置测试文件名字
@@ -629,6 +644,9 @@ namespace acm{
         case Interactors:
             nameStr="数据交互器";
             break;
+        default:
+            _testlog.tlog("未知生成器类型",loglib::ERROR);
+            return false;
         }
         string prompt;
         _testlog.tlog("正在生成"+nameStr);
@@ -733,8 +751,9 @@ namespace acm{
         process::Process proc;
         // 返回值
         Exit res;
+        string dataName=_config[f(NowData)].get<string>();
         switch(name){
-        case Generators:
+        case Generators:{
             nameStr="数据生成器";
             runfile/=f(name);
             // 读取计数
@@ -744,7 +763,8 @@ namespace acm{
             // 更新文件
             _config[f(NowData)]="data"+std::to_string(num);
             _config.save();
-            args.add(f(name)).add(std::to_string(num)).add(">").add(dataDirs[0]/(_config[f(NowData)]+".in"));
+            // 设置路径
+            args.add(f(name)).add(std::to_string(num)).add(">").add(dataDirs[0]/(dataName+".in"));
             proc.load(runfile,args);
             _testlog.tlog("正在运行"+nameStr);
             proc.start();
@@ -752,10 +772,11 @@ namespace acm{
             res.status=proc.wait();;
             res.exit_code=proc.get_exit_code();
             break;
-        case Validators:
+        }
+        case Validators:{
             nameStr="数据验证器";
             runfile/=f(name);
-            args.add(f(name)).add("<").add(dataDirs[1]/(_config[f(NowData)]+".in"));
+            args.add(f(name)).add("<").add(dataDirs[1]/(dataName+".in"));
             proc.load(runfile,args);
             _testlog.tlog("正在运行"+nameStr);
             proc.start();
@@ -763,10 +784,11 @@ namespace acm{
             res.status=proc.wait();
             res.exit_code=proc.get_exit_code();
             break;
-        case Checkers:
+        }
+        case Checkers:{
             nameStr="数据检查器";
             runfile/=f(name);
-            args.add(f(name)).add(dataDirs[0]/(_config[f(NowData)]+".in")).add(dataDirs[1]/(_config[f(NowData)]+".out")).add(dataDirs[2]/(_config[f(NowData)]+".out"));
+            args.add(f(name)).add(dataDirs[0]/(dataName+".in")).add(dataDirs[1]/(dataName+".out")).add(dataDirs[2]/(dataName+".out"));
             proc.load(runfile,args);
             _testlog.tlog("正在运行"+nameStr);
             proc.start();
@@ -774,6 +796,7 @@ namespace acm{
             res.status=proc.wait();
             res.exit_code=proc.get_exit_code();
             break;
+        }
         case Interactors:
             nameStr="数据交互器";
             runfile/=f(name);
@@ -789,7 +812,7 @@ namespace acm{
             // 运行AC代码
             nameStr="AC代码";
             runfile=_ACfile;
-            args.add(_ACfile).add("<").add(dataDirs[0]/(_config[f(NowData)]+".in")).add(">").add(dataDirs[1]/(_config[f(NowData)]+".out"));
+            args.add(_ACfile).add("<").add(dataDirs[0]/(dataName+".in")).add(">").add(dataDirs[1]/(dataName+".out"));
             proc.load(runfile,args);
             _testlog.tlog("正在运行"+nameStr);
             proc.set_timeout(_config[f(TimeLimit)]);
@@ -803,7 +826,7 @@ namespace acm{
             // 运行测试代码
             nameStr="测试代码";
             runfile=_testfile;
-            args.add(_testfile).add("<").add(dataDirs[0]/(_config[f(NowData)]+".in")).add(">").add(dataDirs[1]/(_config[f(NowData)]+".out"));
+            args.add(_testfile).add("<").add(dataDirs[0]/(dataName+".in")).add(">").add(dataDirs[1]/(dataName+".out"));
             proc.load(runfile,args);
             _testlog.tlog("正在运行"+nameStr);
             proc.set_timeout(_config[f(TimeLimit)]);
@@ -852,7 +875,8 @@ namespace acm{
             else if(res.status==process::ERROR){
                 _testlog.tlog("本次数据生成不符合要求，正在重新生成",loglib::WARNING);
                 // 重置计数
-                _config[f(DataNum)]=_config[f(DataNum)]-1;
+                auto &temp=_config[f(DataNum)].get_ref<json::number_integer_t&>();
+                temp-=1;
                 _config.save();
                 // 重新生成本次数据
                 continue;
@@ -931,8 +955,9 @@ namespace acm{
     }
     // 添加错误集合
     void AutoTest::add_WAdatas(){
-        string in=rfile(_basePath/"inData"/(_config[f(NowData)]+".in"));
-        string out=rfile(_basePath/"acData"/(_config[f(NowData)]+".out"));
+        string dataName=_config[f(NowData)];
+        string in=rfile(_basePath/"inData"/(dataName+".in"));
+        string out=rfile(_basePath/"acData"/(dataName+".out"));
         // 添加到错误样例集合
         json temp={
             { "in",in },
@@ -941,7 +966,7 @@ namespace acm{
         _WAdatas.get().push_back(temp);
         _WAdatas.save();
     }
-    void AutoTest::add_to_cph(const string &in,const string &out){
+    void AutoTest::add_to_cph(){
         // 如果cph路径被赋值才会执行
         if(_cph=="."||_cph.empty()){
             return;
@@ -1011,5 +1036,16 @@ namespace acm{
         catch(const std::exception &e){
             _testlog.tlog("CPH: 读取或写入文件失败: "+string(e.what()),loglib::ERROR);
         }
+    }
+    // 析构函数
+    AutoTest::~AutoTest(){
+        _log.tlog("AutoTest结束运行");
+        // 保存历史记录
+        _history.save();
+        // 保存配置文件
+        _setting.save();
+        _config.save();
+        // 保存错误样例集合
+        _WAdatas.save();
     }
 };

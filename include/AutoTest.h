@@ -17,7 +17,7 @@ namespace acm{
     // 自动测试类
     class AutoTest{
         // 配置文件
-        fs::path _path="./Config";
+        fs::path _path="./config";
         AutoConfig _setting;
         // 配置文件初始化
         void init_config();
@@ -88,7 +88,7 @@ namespace acm{
         // 设置cph路径
         bool set_cph(const fs::path &path);
         // 修改源文件目录下.cph配置，将错误样例自动加入
-        void add_to_cph(const string &in,const string &out);
+        void add_to_cph();
     public:
         // 构造函数
         AutoTest(const string &name="");
