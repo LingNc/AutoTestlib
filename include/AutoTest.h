@@ -95,7 +95,10 @@ namespace acm{
         // 新增AI工具
         void add_tool(const json &tool);
         // 设置配置文件
-        void config(ConfigSign config,ConfigSign value,ConfigSign target=Test);
+        void config(ConfigSign key,ConfigSign value,ConfigSign target=Test);
+        void config(const string key,const string value,ConfigSign target=Test);
+        void config(ConfigSign key,const string value,ConfigSign target=Test);
+        void config(const string key,ConfigSign value,ConfigSign target=Test);
         // 更改密钥
         void set_key(const string &key="");
         // 设置测试文件名字

@@ -328,20 +328,30 @@ namespace acm{
         init_prompt(_path/"prompt");
     }
     // 设置配置文件
-    void AutoTest::config(ConfigSign config,ConfigSign value,ConfigSign target){
+    void AutoTest::config(const string key,const string value,ConfigSign target){
         if(target==Global){
-            _setting[f(config)]=value;
+            _setting[key]=value;
             _log.tlog(
-                "配置项: "+f(config)+
-                " 设置为: "+f(value));
+                "配置项: "+key+
+                " 设置为: "+value);
         }
         else{
-            _config[f(config)]=value;
+            _config[key]=value;
             _testlog.tlog(
-                "配置项: "+f(config)+
-                " 设置为: "+f(value));
+                "配置项: "+key+
+                " 设置为: "+value);
         }
     }
+    void AutoTest::config(ConfigSign key,const string value,ConfigSign target){
+        config(f(key),value,target);
+    }
+    void AutoTest::config(const string key,ConfigSign value,ConfigSign target){
+        config(key,f(value),target);
+    }
+    void AutoTest::config(ConfigSign key,ConfigSign value,ConfigSign target){
+        config(f(key),f(value),target);
+    }
+
     // 设置测试文件名字
     bool AutoTest::set_name(const string &name){
         if(name.empty()){

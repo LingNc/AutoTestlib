@@ -2,6 +2,7 @@
 !*/
 
 **/*.key
+Code/
 
 !.gitignore
 !*.cpp
