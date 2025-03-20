@@ -175,8 +175,10 @@ namespace acm{
             if(tempKey.empty()){
                 throw std::runtime_error("密钥不能为空");
             }
+            _openaiKey.save(tempKey);
         }
-        _openaiKey.save(key);
+        else
+            _openaiKey.save(key);
         _log.tlog("密钥注册成功");
     }
     // 注册key
