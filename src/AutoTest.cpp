@@ -220,12 +220,12 @@ namespace acm{
                 { "properties",{
                     { "DocsName",{
                         { "type","string" },
-                        { "description","文档的名称，对于New文档有6个参数候选项可以选择: ,\"index\",\"general\",\"generators\",\"validators\",\"checkers\",\"interactors\"。对于Old文档有5个参数候选项没有\"Index\"" }}},
-                    { "DocsType",{
-                        { "type","string" },
-                        { "description","文档的类型，选择新文档或者老文档，老文档是原始文档，可能可以提供一些更多的信息，新文档的内容会更加完善，详细，你有两个参数候选项可以选择: \"New\",\"Old\"。"}}}}},
+                { "description","文档的名称，对于New文档有6个参数候选项可以选择: ,\"index\",\"general\",\"generators\",\"validators\",\"checkers\",\"interactors\"。对于Old文档有5个参数候选项没有\"Index\"" } } },
+                { "DocsType",{
+                    { "type","string" },
+                { "description","文档的类型，选择新文档或者老文档，老文档是原始文档，可能可以提供一些更多的信息，新文档的内容会更加完善，详细，你有两个参数候选项可以选择: \"New\",\"Old\"。" } } } } },
                 { "required",
-                    json::array({ "DocsName","DocsType" })}}}}}
+                json::array({ "DocsName","DocsType" }) } } } } }
             };
             _setting[f(Tools)].push_back(tempTool);
 
@@ -241,7 +241,15 @@ namespace acm{
             // 默认跟随全局配置
             _config[f(Attach_Global)]=true;
             // 生成测试数量，以及提供的初始化随机数值
-            _config[f(DataNum)]=0;
+            _config[f(NowData)]=0;
+            // 现在测试到的位置
+            _config[f(NowTest)]=0;
+            // 初始化特例数量
+            _config[f(Special)]=2;
+            // 初始化边界数量
+            _config[f(Edge)]=2;
+            // 错误限制
+            _config[f(ErrorLimit)]=2;
             _config.save();
         }
     }
@@ -512,6 +520,34 @@ namespace acm{
         }
         return true;
     }
+    // 初始化共有
+    bool AutoTest::init_temp(){
+        // 初始化dataDirs
+        if(_dataDirs.empty()){
+            // 初始化数据文件夹
+            _dataDirs={
+                _basePath/"inData",
+                _basePath/"outData",
+                _basePath/"acData"
+            };
+            for(const auto &dir:_dataDirs){
+                if(!fs::exists(dir)){
+                    try{
+                        fs::create_directories(dir);
+                    }
+                    catch(const fs::filesystem_error &e){
+                        _testlog.tlog("创建目录失败: "+dir.string()+" - "+e.what(),loglib::ERROR);
+                        Exit res;
+                        res.status=process::ERROR;
+                        return false;
+                    }
+                }
+            }
+        }
+        // 初始化临时存储数字
+        _temp_num[f(Special)]=_config[f(Special)];
+        _temp_num[f(Edge)]=_config[f(Edge)];
+    }
     // 初始化配置文件夹
     bool AutoTest::init(){
         // 完整性验证
@@ -557,6 +593,8 @@ namespace acm{
             _WAdatas.get()=json::array();
             _WAdatas.save();
         }
+        // 初始化其他配置
+        init_temp();
         return true;
     }
     // 载入已经存在的文件夹
@@ -626,6 +664,8 @@ namespace acm{
         }
         _log.tlog("载入"+_name+"成功");
         _testlog.tlog("重新载入成功");
+        // 初始化其他配置
+        init_temp();
         return true;
     }
     // 测试工具生成编译
@@ -677,7 +717,7 @@ namespace acm{
         return status==process::STOP;
     }
     // 生成测试工具
-    AutoTest &AutoTest::gen(){
+    AutoTest &AutoTest::ai_gen(){
         // 初始化提示词
         json &session=_history.get();
         session.push_back({
@@ -722,185 +762,129 @@ namespace acm{
         return *this;
     }
     // 运行测试
-    AutoTest::Exit AutoTest::run(ConfigSign name){
+    AutoTest::Exit AutoTest::run(ConfigSign name,process::Args args){
         // 运行测试
-        string nameStr;
         fs::path runfile=_basePath;
-        // 统一创建所需文件夹
-        std::vector<fs::path> dataDirs={
-            _basePath/"inData",
-            _basePath/"outData",
-            _basePath/"acData"
-        };
-
-        for(const auto &dir:dataDirs){
-            if(!fs::exists(dir)){
-                try{
-                    fs::create_directories(dir);
-                }
-                catch(const fs::filesystem_error &e){
-                    _testlog.tlog("创建目录失败: "+dir.string()+" - "+e.what(),loglib::ERROR);
-                    Exit res;
-                    res.status=process::ERROR;
-                    return res;
-                }
-            }
-        }
-
-        process::Args args;
         process::Process proc;
         // 返回值
         Exit res;
-        string dataName=_config[f(NowData)].get<string>();
-        switch(name){
-        case Generators:{
-            nameStr="数据生成器";
-            runfile/=f(name);
-            // 读取计数
-            int num=_config[f(DataNum)];
-            num++;
-            _config[f(DataNum)]=num;
-            // 更新文件
-            _config[f(NowData)]="data"+std::to_string(num);
-            _config.save();
-            // 设置路径
-            args.add(f(name)).add(std::to_string(num)).add(">").add(dataDirs[0]/(dataName+".in"));
-            proc.load(runfile,args);
-            _testlog.tlog("正在运行"+nameStr);
-            proc.start();
-            // 等待运行结束
-            res.status=proc.wait();;
-            res.exit_code=proc.get_exit_code();
-            break;
-        }
-        case Validators:{
-            nameStr="数据验证器";
-            runfile/=f(name);
-            args.add(f(name)).add("<").add(dataDirs[1]/(dataName+".in"));
-            proc.load(runfile,args);
-            _testlog.tlog("正在运行"+nameStr);
-            proc.start();
-            // 等待运行结束
-            res.status=proc.wait();
-            res.exit_code=proc.get_exit_code();
-            break;
-        }
-        case Checkers:{
-            nameStr="数据检查器";
-            runfile/=f(name);
-            args.add(f(name)).add(dataDirs[0]/(dataName+".in")).add(dataDirs[1]/(dataName+".out")).add(dataDirs[2]/(dataName+".out"));
-            proc.load(runfile,args);
-            _testlog.tlog("正在运行"+nameStr);
-            proc.start();
-            // 等待运行结束
-            res.status=proc.wait();
-            res.exit_code=proc.get_exit_code();
-            break;
-        }
-        case Interactors:
-            nameStr="数据交互器";
-            runfile/=f(name);
-            args.add(f(name));
-            proc.load(runfile,args);
-            _testlog.tlog("正在运行"+nameStr);
-            proc.start();
-            // 等待运行结束
-            res.status=proc.wait();
-            res.exit_code=proc.get_exit_code();
-            break;
-        case AC_Code:
-            // 运行AC代码
-            nameStr="AC代码";
-            runfile=_ACfile;
-            args.add(_ACfile).add("<").add(dataDirs[0]/(dataName+".in")).add(">").add(dataDirs[1]/(dataName+".out"));
-            proc.load(runfile,args);
-            _testlog.tlog("正在运行"+nameStr);
-            proc.set_timeout(_config[f(TimeLimit)]);
-            proc.set_memout(_config[f(MemLimit)]);
-            proc.start();
-            // 等待运行结束
-            res.status=proc.wait();
-            res.exit_code=proc.get_exit_code();
-            break;
-        case Test_Code:
-            // 运行测试代码
-            nameStr="测试代码";
-            runfile=_testfile;
-            args.add(_testfile).add("<").add(dataDirs[0]/(dataName+".in")).add(">").add(dataDirs[1]/(dataName+".out"));
-            proc.load(runfile,args);
-            _testlog.tlog("正在运行"+nameStr);
-            proc.set_timeout(_config[f(TimeLimit)]);
-            proc.set_memout(_config[f(MemLimit)]);
-            proc.start();
-            // 等待运行结束
-            res.status=proc.wait();
-            res.exit_code=proc.get_exit_code();
-            break;
-        default:
-            _log.tlog("未知运行文件: "+f(name),loglib::ERROR);
-            throw std::runtime_error("未知运行文件: "+f(name));
-        }
+        runfile/=f(name);
+        proc.load(runfile,args);
+        _testlog.tlog("正在运行"+f(name));
+        proc.start();
+        // 等待运行结束
+        res.status=proc.wait();
+        res.exit_code=proc.get_exit_code();
+
         return res;
     }
-    // 开始自动对拍
-    bool AutoTest::start(){
+    // 生成数据
+    bool AutoTest::generate_data(){
         // 检测是否已经编译和生成
         if(fs::exists(f(Generators))&&fs::exists(f(Validators))&&fs::exists(f(Checkers))){
-            _log.tlog("测试文件已经编译,开始自动对拍");
+            _log.tlog("测试文件已经编译,开始生成数据");
         }
         else{
             _log.tlog("测试文件不存在,请先编译",loglib::ERROR);
             return false;
         }
-        // 开始运行
+
         // 循环验证数据直到找到不一致的数据
-        int error_nums=0;
         while(true){
-            int num=_config[f(DataNum)];
-            _testlog.tlog("正在运行第"+std::to_string(num)+"个测试点");
-            // 生成数据并检查数据是否符合要求
-            Exit res=run(Generators);
-            if(res.status==process::STOP){
-                _testlog.tlog("数据生成器运行成功");
+            int num=_config[f(NowData)];
+            num++;
+            string info="第"+std::to_string(num)+"个测试点";
+            _testlog.tlog("生成"+info);
+            // 读取计数
+            string dataName="data"+std::to_string(num);
+            _config[f(DataNum)]=dataName;
+            // 设置路径
+            process::Args args;
+            // 特判生成数量
+            int &Special_nums=_temp_num[f(Special)];
+            // 边界生成数量
+            int &Edge_nums=_temp_num[f(Edge)];
+            if(Special_nums>0){
+                args.add(f(Generators)).add(1).add(num).add(">").add(_dataDirs[inData]/(dataName+".in"));
+                Special_nums--;
+            }
+            if(Edge_nums>0){
+                args.add(f(Generators)).add(2).add(num).add(">").add(_dataDirs[inData]/(dataName+".in"));
+                Edge_nums--;
             }
             else{
-                _testlog.tlog("数据生成器运行失败",loglib::ERROR);
+                args.add(f(Generators)).add(0).add(num).add(">").add(_dataDirs[inData]/(dataName+".in"));
+            }
+            // 生成数据并检查数据是否符合要求
+            Exit res=run(Generators,args);
+            if(res.status==process::STOP){
+                _testlog.tlog(info+": 数据生成器运行成功");
+            }
+            else{
+                _testlog.tlog(info+": 数据生成器运行失败",loglib::ERROR);
                 return false;
             }
             // 运行数据验证器
-            res=run(Validators);
-            if(res.status==process::STOP){
-                _testlog.tlog("数据验证成功");
+            args.clear();
+            args.add(f(Validators)).add("<").add(_dataDirs[inData]/(dataName+".in"));
+            res=run(Validators,args);
+            if(res.status=process::STOP){
+                _testlog.tlog(info+": 数据验证成功");
+                _config[f(NowData)]=num;
+                _config.save();
             }
             else if(res.status==process::ERROR){
-                _testlog.tlog("本次数据生成不符合要求，正在重新生成",loglib::WARNING);
-                // 重置计数
-                auto &temp=_config[f(DataNum)].get_ref<json::number_integer_t &>();
-                temp-=1;
-                _config.save();
+                _testlog.tlog(info+": 数据生成不符合要求，正在重新生成",loglib::WARNING);
                 // 重新生成本次数据
                 continue;
             }
             else{
-                _testlog.tlog("数据验证器运行失败",loglib::ERROR);
+                _testlog.tlog(info+": 数据验证器运行失败",loglib::ERROR);
                 return false;
             }
-            // 运行Test代码获得对应输出
-            res=run(Test_Code);
+        }
+    }
+    // 测试数据
+    bool AutoTest::test_data(){
+        // 检测测试数据是否已经生成
+        if(_config.get().find(f(DataNum))!=_config.get().end()){
+            _log.tlog("测试数据已经生成,开始测试数据");
+        }
+        else{
+            _log.tlog("测试数据不存在,请先生成数据",loglib::ERROR);
+            return false;
+        }
+        int target_num=_config[f(NowData)];
+        int num;
+        // 循环验证数据直到找到不一致的数据
+        while(num<target_num){
+            process::Args args;
+            num=_config[f(NowTest)];
+            num++;
+            string info="第"+std::to_string(num)+"个测试点";
+            _testlog.tlog("测试"+info);
+            // 读取计数
+            string dataName="data"+std::to_string(num);
+            _config[f(DataNum)]=dataName;
+            // 运行对应的Test代码
+            args.add(f(Test_Code)).add("<").add(_dataDirs[inData]/(dataName+".in")).add(">").add(_dataDirs[outData]/(dataName+".out"));
+            Exit res=run(Test_Code,args);
             if(res.status==process::STOP){
-                _testlog.tlog("测试代码运行成功");
+                _testlog.tlog(info+": 测试代码运行成功");
                 JudgeCode temp=judge(res.status,res.exit_code);
                 _config[f(JudgeStatus)]=f(temp);
                 _config.save();
             }
             else{
-                _testlog.tlog("测试代码运行失败",loglib::ERROR);
+                _testlog.tlog(info+": 测试代码运行失败",loglib::ERROR);
                 return false;
             }
-            // 运行AC代码
-            res=run(AC_Code);
+            // 运行对应的AC代码
+            args.clear();
+            args.add(f(AC_Code)).add("<").add(_dataDirs[inData]/(dataName+".in")).add(">").add(_dataDirs[outData]/(dataName+".out"));
+            res=run(AC_Code,args);
             if(res.status==process::STOP){
-                _testlog.tlog("AC代码运行成功");
+                _testlog.tlog(info+": AC代码运行成功");
                 JudgeCode temp=judge(res.status,res.exit_code);
                 if(temp!=Waiting){
                     _testlog.tlog("AC代码出现问题, 状态: "+f(temp),loglib::ERROR);
@@ -908,22 +892,25 @@ namespace acm{
                 }
             }
             else{
-                _testlog.tlog("AC代码运行失败",loglib::ERROR);
+                _testlog.tlog(info+": AC代码运行失败",loglib::ERROR);
                 return false;
             }
             // 如果已经判题
-            if(_config[f(JudgeStatus)]!=f(Waiting)){
-                error_nums+=1;
+            if(_config[f(JudgeStatus)].get<string>()!=f(Waiting)){
                 _testlog.tlog("第"+std::to_string(num)+"个测试点,状态: "+string(_config[f(JudgeStatus)]));
                 // 把当前样例加入错误集合
                 add_WAdatas();
                 return true;
             }
+            // 开始判题
             // 运行数据检查器
-            res=run(Checkers);
+            args.clear();
+            args.add(f(Checkers)).add(_dataDirs[inData]/(dataName+".in")).add(_dataDirs[outData]/(dataName+".out")).add(_dataDirs[acData]/(dataName+".out"));
+            // 运行数据检查器
+            Exit res=run(Checkers,args);
             if(res.status==process::STOP){
                 _config[f(JudgeStatus)]=f(Accept);
-                _testlog.tlog(string(_config[f(NowData)])+": "+f(Accept));
+                _testlog.tlog(info+": "+f(Accept));
                 return true;
             }
             else if(res.status==process::ERROR){
@@ -939,7 +926,7 @@ namespace acm{
                     else{
                         _config[f(JudgeStatus)]=f(RuntimeError);
                     }
-                    _testlog.tlog("第"+std::to_string(num)+"个测试点,状态: "+string(_config[f(JudgeStatus)]));
+                    _testlog.tlog(info+": 状态 "+string(_config[f(JudgeStatus)]));
                     // 当前样例添加到错误集合
                     add_WAdatas();
                     return true;
@@ -948,16 +935,36 @@ namespace acm{
                     return false;
             }
             else{
-                _testlog.tlog("数据检查器运行失败",loglib::ERROR);
+                _testlog.tlog(info+"数据检查器运行失败",loglib::ERROR);
                 return false;
+            }
+        }
+    }
+    // 开始自动对拍
+    bool AutoTest::start(){
+        // 开始运行
+        // 循环验证数据直到找到不一致的数据
+        int error_nums=_config[f(ErrorLimit)];
+        while(true){
+            // 生成数据
+            generate_data();
+            // 测试数据
+            test_data();
+            // 判断是否达到错误限制
+            if(_config[f(JudgeStatus)]!=f(Accept)){
+                error_nums--;
+                if(error_nums<=0){
+                    _testlog.tlog("错误限制达到,自动对拍结束",loglib::ERROR);
+                    return false;
+                }
             }
         }
     }
     // 添加错误集合
     void AutoTest::add_WAdatas(){
         string dataName=_config[f(NowData)];
-        string in=rfile(_basePath/"inData"/(dataName+".in"));
-        string out=rfile(_basePath/"acData"/(dataName+".out"));
+        string in=rfile(_dataDirs[inData]/(dataName+".in"));
+        string out=rfile(_dataDirs[acData]/(dataName+".out"));
         // 添加到错误样例集合
         json temp={
             { "in",in },

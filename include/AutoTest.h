@@ -30,6 +30,8 @@ namespace acm{
         void init_key();
         // 测试路径配置文件
         AutoConfig _config;
+        // 运行时配置文件
+        std::unordered_map<string,int> _temp_num;
         // 测试配置初始化
         void init_test_config();
         // 测试程序名称
@@ -92,6 +94,12 @@ namespace acm{
         bool set_cph(const fs::path &path);
         // 修改源文件目录下.cph配置，将错误样例自动加入
         void add_to_cph();
+        // 数据存储文件夹
+        std::vector<fs::path> _dataDirs;
+        // 数据文件夹访问
+        enum DataFloder{ inData,outData,acData };
+        // 初始化其余配置
+        bool init_temp();
     public:
         // 构造函数
         AutoTest(const string &name="");
@@ -124,14 +132,18 @@ namespace acm{
         // 测试工具生成编译
         bool make(ConfigSign name,json &session);
         // 生成测试工具
-        AutoTest &gen();
+        AutoTest &ai_gen();
         // 退出状态
         struct Exit{
             process::Status status;
             int exit_code;
         };
         // 进行测试
-        Exit run(ConfigSign name);
+        Exit run(ConfigSign name,process::Args args);
+        // 生成数据
+        bool generate_data();
+        // 测试数据
+        bool test_data();
         // 开始自动对拍
         bool start();
         // 析构函数

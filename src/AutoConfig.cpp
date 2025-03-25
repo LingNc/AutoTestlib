@@ -30,7 +30,7 @@ namespace acm{
             return "top_p";
         case Tools:
             return "tools";
-        case  General:
+        case General:
             return "general";
         case Generators:
             return "generators";
@@ -44,6 +44,8 @@ namespace acm{
             return "data_num";
         case NowData:
             return "now_data";
+        case NowTest:
+            return "now_test";
         case AC_Code:
             return "ac_code";
         case Test_Code:
@@ -52,8 +54,14 @@ namespace acm{
             return "time_limit";
         case MemLimit:
             return "mem_limit";
+        case ErrorLimit:
+            return "error_limit";
         case JudgeStatus:
             return "judge_status";
+        case Special:
+            return "special";
+        case Edge:
+            return "edge";
         default:
             throw std::runtime_error("未知配置项");
         }

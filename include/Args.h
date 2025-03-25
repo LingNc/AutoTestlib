@@ -26,6 +26,10 @@ namespace process{
 
         // 添加参数
         Args &add(const string &arg);
+        template<typename T>
+        Args &add(const T &arg){
+            add(std::to_string(arg));
+        }
         // 添加多个参数
         Args &add(const std::vector<string> &arguments);
         // 设置程序名称（第一个参数）
