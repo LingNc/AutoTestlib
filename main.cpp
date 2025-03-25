@@ -12,26 +12,26 @@ int main(){
         std::string key;
         std::cout<<"请输入OpenAi密钥: ";
         std::cin>>key;
-        if(!key.empty())
+        if(key!="n")
             test.set_key(key);
         // 设置测试文件夹路径
         fs::path path;
         std::cout<<"请输入测试文件夹路径：";
         std::cin>>path;
-        if(!path.empty())
+        if(path!="n")
             test.set_basePath(path);
         // 设置OpenAi 的 base URL
         std::string url;
         std::cout<<"请输入OpenAi API地址: ";
         std::cin>>url;
-        if(!url.empty())
-            test.config(acm::OpenAI_URL,url);
+        if(url!="n")
+            test.config(acm::OpenAI_URL,url,acm::Global);
         // 设置默认模型
         std::string model;
         std::cout<<"请输入默认模型: ";
         std::cin>>model;
-        if(!model.empty())
-            test.config(acm::Model,model);
+        if(model!="n")
+            test.config(acm::Model,model,acm::Global);
     }
     // 是否从已有文件夹加载
     std::string load;
