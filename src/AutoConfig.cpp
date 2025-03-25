@@ -30,6 +30,8 @@ namespace acm{
             return "top_p";
         case Tools:
             return "tools";
+        case  General:
+            return "general";
         case Generators:
             return "generators";
         case Validators:

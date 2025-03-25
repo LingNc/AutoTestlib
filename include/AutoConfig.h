@@ -30,6 +30,7 @@ namespace acm{
         Max_Token, //> 最大Token
         Top_P, //> Top P
         Tools, //> 工具
+        General, //> 综述
         Generators, //> 生成器
         Validators, //> 验证器
         Checkers, //> 检查器

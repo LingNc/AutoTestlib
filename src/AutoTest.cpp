@@ -30,11 +30,14 @@ namespace acm{
         return code;
     }
     // 获取文档
-    string AutoTest::get_docs(const string &DocsName){
+    string AutoTest::get_docs(const string &DocsName,const string &DocsType){
         if(_docs.find(DocsName)==_docs.end()){
             return "文档不存在: "+DocsName;
         }
-        return _docs[DocsName];
+        if(DocsType.empty()){
+            return _docs[DocsName];
+        }
+        return _docs[DocsType][DocsName];
     }
     // 新增工具
     void AutoTest::add_tool(const json &tool){
@@ -76,7 +79,8 @@ namespace acm{
             if(funcName=="get_docs"){
                 if(check_func_call(funcArgs,funcName).empty()){
                     string docsName=funcArgs["DocsName"];
-                    temp["content"]=get_docs(docsName);
+                    string docsType=funcArgs["DocsType"];
+                    temp["content"]=get_docs(docsName,docsType);
                     _testlog.tlog(_setting[f(Model)].get<string>()+"调用了函数: "+funcName+"参数: "+funcArgs.dump());
                 }
             }
@@ -210,36 +214,19 @@ namespace acm{
                 { "type","function" },
                 { "function",{
                     { "name","get_docs" },
-                { "description","获得Testlib函数库的参考文档的原始信息,用来作为重要的参考依据,有一个总的概括,和四个文档的详细描述: 包括Testlib_Total的描述,Generators数据生成器文档,Validators数据验证器文档,Checkers数据检查器文档,Interactors数据交互器文档" },
+                { "description","获得Testlib函数库的参考文档的原始信息,用来作为重要的参考依据,有一个总的概括,和四个文档的详细描述: 包括Index文档的索引,General的总的一些函数和参数的用法和示意,Generators数据生成器文档,Validators数据验证器文档,Checkers数据检查器文档,Interactors数据交互器文档" },
                 { "parameters",{
                     { "type","object" },
                 { "properties",{
                     { "DocsName",{
                         { "type","string" },
-                { "description","文档的名称，有五个参数候选项可以选择: \"Total\",\"Generators\",\"Validators\",\"Checkers\",\"Interactors\"。" }
-            } }
-            } },
-                { "required",json::array({ "DocsName" }) }
-            } }
-            } }
+                        { "description","文档的名称，对于New文档有6个参数候选项可以选择: ,\"index\",\"general\",\"generators\",\"validators\",\"checkers\",\"interactors\"。对于Old文档有5个参数候选项没有\"Index\"" }}},
+                    { "DocsType",{
+                        { "type","string" },
+                        { "description","文档的类型，选择新文档或者老文档，老文档是原始文档，可能可以提供一些更多的信息，新文档的内容会更加完善，详细，你有两个参数候选项可以选择: \"New\",\"Old\"。"}}}}},
+                { "required",
+                    json::array({ "DocsName","DocsType" })}}}}}
             };
-            // json tempTool1=R"({
-            //     "type": "function",
-            //     "function": {
-            //         "name": "get_docs",
-            //         "description": "获得Testlib函数库的参考文档的原始信息,用来作为重要的参考依据,有一个总的概括,和四个文档的详细描述: 包括Testlib_Total的描述,Generators数据生成器文档,Validators数据验证器文档,Checkers数据检查器文档,Interactors数据交互器文档",
-            //         "parameters": {
-            //             "type": "object",
-            //             "properties": {
-            //                 "DocsName": {
-            //                     "type": "string",
-            //                     "description": "文档的名称，有五个参数候选项可以选择: "Total",""Generators","Validators","Checkers","Interactors"。"
-            //                 }
-            //             },
-            //             "required": ["DocsName"]
-            //         }
-            //     }
-            // })";
             _setting[f(Tools)].push_back(tempTool);
 
             _setting.save();
@@ -267,14 +254,14 @@ namespace acm{
         _log.tlog("正在读取Testlib文档");
         // 读取文档
         auto &_docs_origin=_docs["origin"];
-        _docs_origin["Total"]=rfile(path/"Testlib_Total.md");
+        _docs_origin[f(General)]=rfile(path/"Testlib_Total.md");
         _docs_origin[f(Generators)]=rfile(path/"Testlib_Generators.md");
         _docs_origin[f(Validators)]=rfile(path/"Testlib_Validators.md");
         _docs_origin[f(Checkers)]=rfile(path/"Testlib_Checkers.md");
         _docs_origin[f(Interactors)]=rfile(path/"Testlib_Interactors.md");
         auto &_docs_new=_docs["new"];
         _docs_new["index"]=rfile(path/"index.md");
-        _docs_new["general"]=rfile(path/"general.md");
+        _docs_new[f(General)]=rfile(path/"general.md");
         _docs_new[f(Generators)]=rfile(path/"generator.md");
         _docs_new[f(Validators)]=rfile(path/"validator.md");
         _docs_new[f(Checkers)]=rfile(path/"checker.md");
@@ -331,6 +318,7 @@ namespace acm{
     void AutoTest::config(const string key,const string value,ConfigSign target){
         if(target==Global){
             _setting[key]=value;
+            _setting.save();
             _log.tlog(
                 "配置项: "+key+
                 " 设置为: "+value);
@@ -887,7 +875,7 @@ namespace acm{
             else if(res.status==process::ERROR){
                 _testlog.tlog("本次数据生成不符合要求，正在重新生成",loglib::WARNING);
                 // 重置计数
-                auto &temp=_config[f(DataNum)].get_ref<json::number_integer_t&>();
+                auto &temp=_config[f(DataNum)].get_ref<json::number_integer_t &>();
                 temp-=1;
                 _config.save();
                 // 重新生成本次数据

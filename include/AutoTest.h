@@ -14,6 +14,9 @@
 
 namespace acm{
     using nlohmann::json;
+    typedef struct Config{
+
+    }Config;
     // 自动测试类
     class AutoTest{
         // 配置文件
@@ -76,7 +79,7 @@ namespace acm{
         // 初始化文档读取
         void init_docs(const fs::path &path="./config/docs");
         // 获取文档
-        string get_docs(const string &DocsName);
+        string get_docs(const string &DocsName,const string &DocsType);
         // 完整性验证
         bool full_check();
         // 错误样例集合
