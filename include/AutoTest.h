@@ -69,7 +69,7 @@ namespace acm{
         // 对话
         json chat(const json &prompt,ConfigSign type=Model);
         // 获取题目名称
-        string get_problem_name(string name);
+        string get_problem_name();
         // 处理function call
         json handle_function(const json &func_calls);
         // 处理function call 参数名指定错误

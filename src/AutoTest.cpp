@@ -120,9 +120,9 @@ namespace acm{
         return content;
     }
     // 获取题目名称
-    string AutoTest::get_problem_name(string name){
+    string AutoTest::get_problem_name(){
         // 获取题目名称
-        if(name.empty()){
+        if(_name.empty()){
             _log.tlog("正在自动命名");
             json prompt=json::array({
                 { "role","user" },
@@ -537,8 +537,8 @@ namespace acm{
                     }
                     catch(const fs::filesystem_error &e){
                         _testlog.tlog("创建目录失败: "+dir.string()+" - "+e.what(),loglib::ERROR);
-                        Exit res;
-                        res.status=process::ERROR;
+                        // Exit res;
+                        // res.status=process::ERROR;
                         return false;
                     }
                 }
@@ -547,6 +547,7 @@ namespace acm{
         // 初始化临时存储数字
         _temp_num[f(Special)]=_config[f(Special)];
         _temp_num[f(Edge)]=_config[f(Edge)];
+        return true;
     }
     // 初始化配置文件夹
     bool AutoTest::init(){
@@ -559,7 +560,7 @@ namespace acm{
         // 为测试文件夹命名
         if(_name.empty()){
             _log.tlog("未设定名称,开始为测试文件夹命名",loglib::WARNING);
-            _name=get_problem_name(_problem);
+            _name=get_problem_name();
         }
         // 设定测试文件夹路径
         if(_basePath!="."){
@@ -771,6 +772,8 @@ namespace acm{
         runfile/=f(name);
         proc.load(runfile,args);
         _testlog.tlog("正在运行"+f(name));
+        proc.set_memout(_config[f(MemLimit)]);
+        proc.set_timeout(_config[f(TimeLimit)]);
         proc.start();
         // 等待运行结束
         res.status=proc.wait();
@@ -828,7 +831,7 @@ namespace acm{
             args.clear();
             args.add(f(Validators)).add("<").add(_dataDirs[inData]/(dataName+".in"));
             res=run(Validators,args);
-            if(res.status=process::STOP){
+            if(res.status==process::STOP){
                 _testlog.tlog(info+": 数据验证成功");
                 _config[f(NowData)]=num;
                 _config.save();
@@ -855,7 +858,7 @@ namespace acm{
             return false;
         }
         int target_num=_config[f(NowData)];
-        int num;
+        int num=_config[f(NowData)];
         // 循环验证数据直到找到不一致的数据
         while(num<target_num){
             process::Args args;
@@ -869,30 +872,18 @@ namespace acm{
             // 运行对应的Test代码
             args.add(f(Test_Code)).add("<").add(_dataDirs[inData]/(dataName+".in")).add(">").add(_dataDirs[outData]/(dataName+".out"));
             Exit res=run(Test_Code,args);
-            if(res.status==process::STOP){
-                _testlog.tlog(info+": 测试代码运行成功");
-                JudgeCode temp=judge(res.status,res.exit_code);
-                _config[f(JudgeStatus)]=f(temp);
-                _config.save();
-            }
-            else{
-                _testlog.tlog(info+": 测试代码运行失败",loglib::ERROR);
-                return false;
-            }
+            JudgeCode temp=judge(res.status,res.exit_code);
+            _testlog.tlog(info+": 测试代码已运行");
+            _config[f(JudgeStatus)]=f(temp);
+            _config.save();
             // 运行对应的AC代码
             args.clear();
             args.add(f(AC_Code)).add("<").add(_dataDirs[inData]/(dataName+".in")).add(">").add(_dataDirs[outData]/(dataName+".out"));
             res=run(AC_Code,args);
-            if(res.status==process::STOP){
-                _testlog.tlog(info+": AC代码运行成功");
-                JudgeCode temp=judge(res.status,res.exit_code);
-                if(temp!=Waiting){
-                    _testlog.tlog("AC代码出现问题, 状态: "+f(temp),loglib::ERROR);
-                    return false;
-                }
-            }
-            else{
-                _testlog.tlog(info+": AC代码运行失败",loglib::ERROR);
+            _testlog.tlog(info+": AC代码已运行");
+            temp=judge(res.status,res.exit_code);
+            if(temp!=Waiting){
+                _testlog.tlog("AC代码出现问题, 状态: "+f(temp),loglib::ERROR);
                 return false;
             }
             // 如果已经判题
@@ -900,18 +891,18 @@ namespace acm{
                 _testlog.tlog("第"+std::to_string(num)+"个测试点,状态: "+string(_config[f(JudgeStatus)]));
                 // 把当前样例加入错误集合
                 add_WAdatas();
-                return true;
+                continue;
             }
             // 开始判题
             // 运行数据检查器
             args.clear();
             args.add(f(Checkers)).add(_dataDirs[inData]/(dataName+".in")).add(_dataDirs[outData]/(dataName+".out")).add(_dataDirs[acData]/(dataName+".out"));
             // 运行数据检查器
-            Exit res=run(Checkers,args);
+            res=run(Checkers,args);
             if(res.status==process::STOP){
                 _config[f(JudgeStatus)]=f(Accept);
                 _testlog.tlog(info+": "+f(Accept));
-                return true;
+                continue;
             }
             else if(res.status==process::ERROR){
                 // 获取非零状态码
@@ -929,16 +920,15 @@ namespace acm{
                     _testlog.tlog(info+": 状态 "+string(_config[f(JudgeStatus)]));
                     // 当前样例添加到错误集合
                     add_WAdatas();
-                    return true;
+                    continue;
                 }
-                else
-                    return false;
             }
             else{
                 _testlog.tlog(info+"数据检查器运行失败",loglib::ERROR);
                 return false;
             }
         }
+        return true;
     }
     // 开始自动对拍
     bool AutoTest::start(){

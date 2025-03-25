@@ -25,11 +25,13 @@ namespace process{
         Args(const string &command);
 
         // 添加参数
-        Args &add(const string &arg);
-        template<typename T>
+        template <typename T,typename = std::enable_if_t<std::is_arithmetic_v<T>>>
         Args &add(const T &arg){
             add(std::to_string(arg));
+            return *this;
         }
+        // 字符串
+        Args &add(const string &arg);
         // 添加多个参数
         Args &add(const std::vector<string> &arguments);
         // 设置程序名称（第一个参数）

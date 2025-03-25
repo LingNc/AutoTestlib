@@ -58,6 +58,6 @@ int main(){
         test.init();
     }
     // 开始运行
-    test.gen().start();
+    test.ai_gen().start();
     return 0;
 }
