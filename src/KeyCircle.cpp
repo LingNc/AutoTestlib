@@ -3,10 +3,21 @@
 #include <fstream>
 
 KeyCircle::KeyCircle(){}
-KeyCircle::KeyCircle(const fs::path &keyPath):_keyPath(keyPath){}
+KeyCircle::KeyCircle(const fs::path &keyPath){
+    set_path(keyPath);
+}
 
 void KeyCircle::set_path(const fs::path &keyPath){
     _keyPath=keyPath;
+    // 读取密钥
+    std::ifstream file(_keyPath);
+    if(file.is_open()){
+        std::getline(file,_openaiKey);
+        file.close();
+    }
+    else{
+        _openaiKey="";
+    }
 }
 
 bool KeyCircle::exist(){
@@ -26,19 +37,17 @@ bool KeyCircle::exist(){
 }
 
 string KeyCircle::get(){
-    std::fstream file(_keyPath,std::ios::in);
-    string key;
-    if(file.is_open()){
-        file>>key;
-        file.close();
-    }
-    return key;
+    return _openaiKey;
 }
 
 void KeyCircle::save(const string &theKey){
-    std::fstream file(_keyPath,std::ios::out);
+    // 保存文件
+    std::ofstream file(_keyPath);
     if(file.is_open()){
         file<<theKey;
         file.close();
+    }
+    else{
+        throw std::runtime_error("无法打开文件: "+_keyPath.string());
     }
 }

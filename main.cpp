@@ -45,14 +45,17 @@ int main(){
     }
     else{
         fs::path testCode,ACCode,problem;
-        std::cout<<"请输入题目路径：";
-        std::cin>>problem;
+        // std::cout<<"请输入题目路径：";
+        // std::cin>>problem;
+        problem="./Code/C.md";
         test.set_problem(problem);
-        std::cout<<"请输入测试代码路径：";
-        std::cin>>testCode;
+        // std::cout<<"请输入测试代码路径：";
+        // std::cin>>testCode;
+        testCode="./Code/C.cpp";
         test.set_testCode(testCode);
-        std::cout<<"请输入AC代码路径：";
-        std::cin>>ACCode;
+        // std::cout<<"请输入AC代码路径：";
+        // std::cin>>ACCode;
+        ACCode="./Code/C-ac.cpp";
         test.set_ACCode(ACCode);
         // 初始化
         test.init();

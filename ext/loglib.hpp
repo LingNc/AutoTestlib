@@ -149,7 +149,8 @@ namespace loglib{
         void tlog(std::string str,LogLevel level=INFO){
             std::string timestamp=getTime();
             _log_content="["+timestamp+"] "+getLogLevel(level)+' '+str;
-            std::cout<<_log_content<<std::endl;
+            if(level!=ERROR)
+                std::cout<<_log_content<<std::endl;
             if(level==ERROR){
                 std::cerr<<_log_content<<std::endl;
             }

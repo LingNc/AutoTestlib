@@ -45,26 +45,41 @@ namespace acm{
     }
     // 对话
     json AutoTest::chat(const json &prompt,ConfigSign type){
+        // 选择日志记录者
+        auto templog=(type==Named_Model)?_log:_testlog;
+        json temp={};
         if(type==Model){
-            // 发送请求
-            return _AI.chat.create({
-                { "model",_setting[f(type)] },
-                { "messages",prompt },
+            temp.update({
                 { "tools",_tools },
                 { "tool_choice","auto" },
-                { "response_format",{ "type","json_object" } },
-                _setting[f(Model_Config)]
                 });
         }
-        else{
-            return _AI.chat.create({
-                { "model",_setting[f(type)] },
-                { "messages",prompt },
-                { "response_format",{ "type","json_object" } },
-                _setting[f(Model_Config)]
-                });
+        string modelName;
+        // 命名模型不存在则使用原始模型
+        if(_setting[f(type)].empty()){
+            if(type==Named_Model){
+                modelName=_setting[f(Model)].get<string>();
+            }
+            else{
+                templog.tlog("模型不存在",loglib::ERROR);
+            }
         }
+        temp.update({
+            { "model",modelName },
+            { "messages",prompt },
+            { "response_format",{
+                { "type","json_object" }
+            } }
+            });
+        temp.update(_setting[f(Model_Config)]);
 
+        // std::cout<<temp.dump(4)<<std::endl;
+        // 验证结果是否正确
+        json result=_AI.chat.create(temp);
+        if(result.type()!=json::value_t::object){
+            templog.tlog("出现错误,返回结果: "+result.dump(),loglib::ERROR);
+        }
+        return result;
     }
     // 处理function call, 传入func calls，附带日志
     json AutoTest::handle_function(const json &func_calls){
@@ -124,13 +139,16 @@ namespace acm{
         // 获取题目名称
         if(_name.empty()){
             _log.tlog("正在自动命名");
-            json prompt=json::array({
+            json prompt=json::array();
+            prompt.push_back({
                 { "role","user" },
                 { "content",_prompt["askname"]+_problem }
                 });
             json result=chat(prompt,Named_Model);
-            json resultData=result["choices"][0]["message"]["content"];
-            string tempName=resultData["name"];
+            // std::cout<<result<<std::endl;
+            string resultData=result["choices"][0]["message"]["content"];
+            json resultJson=json::parse(resultData);
+            string tempName=resultJson["name"];
             _testlog.tlog("自动命名成功: "+tempName);
             return tempName;
         }
@@ -557,13 +575,21 @@ namespace acm{
             return false;
         }
         _log.tlog("完整性验证成功");
+        // 初始化AI - 构造
+        _AI.setToken(_openaiKey.get());
+        // WARING 必须使用 https://..../V1/ 因为这个openai库不会自动补上这个/
+        string tempURL=_setting[f(OpenAI_URL)];
+        if(tempURL.back()!='/'){
+            tempURL+='/';
+        }
+        _AI.setBaseUrl(tempURL);
         // 为测试文件夹命名
         if(_name.empty()){
             _log.tlog("未设定名称,开始为测试文件夹命名",loglib::WARNING);
             _name=get_problem_name();
         }
         // 设定测试文件夹路径
-        if(_basePath!="."){
+        if(_basePath=="."||_basePath.empty()){
             set_basePath();
         }
         // 初始化日志
@@ -581,10 +607,6 @@ namespace acm{
         _testlog.tlog("文件写入成功");
         // 初始化测试配置
         init_test_config();
-        // 初始化AI - 构造
-        _AI.setToken(_openaiKey.get());
-        _AI.setBaseUrl(_setting[f(OpenAI_URL)]);
-        _log.tlog("初始化成功,文件夹在: "+_basePath.string());
         // 初始化历史记录
         init_system();
         // 初始化错误样例集合
@@ -596,6 +618,7 @@ namespace acm{
         }
         // 初始化其他配置
         init_temp();
+        _log.tlog("初始化成功,文件夹在: "+_basePath.string());
         return true;
     }
     // 载入已经存在的文件夹
@@ -651,6 +674,10 @@ namespace acm{
                 _config[f(OpenAI_URL)]=tempURL;
                 _config.save();
             }
+        }
+        // WARING 必须使用 https://..../V1/ 因为这个openai库不会自动补上这个/
+        if(tempURL.back()!='/'){
+            tempURL+='/';
         }
         _AI.setBaseUrl(tempURL);
         _AI.setToken(_openaiKey.get());
