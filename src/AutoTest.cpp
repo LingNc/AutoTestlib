@@ -79,6 +79,17 @@ namespace acm{
         if(result.type()!=json::value_t::object){
             templog.tlog("出现错误,返回结果: "+result.dump(),loglib::ERROR);
         }
+        // 并不是正确的返回
+        if(result.find("id")==result.end()){
+            int errorCode=result["code"];
+            string message=result["message"];
+            string theData=result["data"].dump();
+            templog.tlog(
+                "请求失败,错误代码: "+std::to_string(errorCode)+
+                ",错误信息: "+message+
+                ",返回数据: "+theData
+                ,loglib::ERROR);
+        }
         return result;
     }
     // 处理function call, 传入func calls，附带日志
@@ -226,27 +237,6 @@ namespace acm{
                 { "max_tokens",4096 },
                 { "top_p",1 }
             };
-            // 默认工具
-            _setting[f(Tools)]=json::array();
-            json tempTool={
-                { "type","function" },
-                { "function",{
-                    { "name","get_docs" },
-                { "description","获得Testlib函数库的参考文档的原始信息,用来作为重要的参考依据,有一个总的概括,和四个文档的详细描述: 包括Index文档的索引,General的总的一些函数和参数的用法和示意,Generators数据生成器文档,Validators数据验证器文档,Checkers数据检查器文档,Interactors数据交互器文档" },
-                { "parameters",{
-                    { "type","object" },
-                { "properties",{
-                    { "DocsName",{
-                        { "type","string" },
-                { "description","文档的名称，对于New文档有6个参数候选项可以选择: ,\"index\",\"general\",\"generators\",\"validators\",\"checkers\",\"interactors\"。对于Old文档有5个参数候选项没有\"Index\"" } } },
-                { "DocsType",{
-                    { "type","string" },
-                { "description","文档的类型，选择新文档或者老文档，老文档是原始文档，可能可以提供一些更多的信息，新文档的内容会更加完善，详细，你有两个参数候选项可以选择: \"New\",\"Old\"。" } } } } },
-                { "required",
-                json::array({ "DocsName","DocsType" }) } } } } }
-            };
-            _setting[f(Tools)].push_back(tempTool);
-
             _setting.save();
         }
     }
@@ -305,7 +295,17 @@ namespace acm{
         _prompt[f(Validators)]=rfile(path/"ValidatePrompt.md");
         _prompt[f(Checkers)]=rfile(path/"CheckPrompt.md");
         _prompt["system"]=rfile(path/"System.md");
-        _prompt["askname"]="你是一个自动命名器,请根据题面生成一个合适的题目名称。请你的回复JSON格式为:{\"name\":\"题目名称\"}。题面：";
+        _prompt["askname"]=rfile(path/"GetName.md");
+    }
+    // 初始化工具
+    bool AutoTest::init_tools(const fs::path &path){
+        // 默认工具
+        _setting[f(Tools)]=json::array();
+        json tempTool;
+        // 从文件中读取
+        tempTool=json::parse(rfile(path/"get_docs.json"));
+        _setting[f(Tools)].push_back(tempTool);
+        return true;
     }
     // 初始化系统提示词
     void AutoTest::init_system(){
@@ -339,6 +339,8 @@ namespace acm{
         init_docs(_path/"docs");
         // 默认prompt读取
         init_prompt(_path/"prompt");
+        // 读取默认工具集
+        init_tools(_path/"tools");
     }
     // 设置配置文件
     void AutoTest::config(const string key,const string value,ConfigSign target){
@@ -750,10 +752,12 @@ namespace acm{
         json &session=_history.get();
         session.push_back({
             { "role","user" },
-            { "content","完整题面为: "+_problem },
+            { "content","完整题面为: "+_problem }
+        });
+        session.push_back({
             { "role","user" },
             { "content","AC代码为: "+_ACCode }
-            });
+        });
         // 保存
         _history.save();
         bool temp;

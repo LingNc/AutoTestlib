@@ -62,6 +62,8 @@ namespace acm{
         openai::OpenAI _AI;
         // docs tools
         json _tools;
+        // 初始化工具
+        bool init_tools(const fs::path &path="./config/tools");
         // 历史记录
         AutoConfig _history;
         // 初始化系统提示词,以及初始化历史记录
