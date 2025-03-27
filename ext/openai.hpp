@@ -114,12 +114,57 @@ public:
     Response postPrepare(const std::string& contentType = "");
     Response deletePrepare();
     Response makeRequest(const std::string& contentType = "");
+
+    // 新增：流式请求方法
+    void makeStreamRequest(const std::string& contentType, std::function<bool(const std::string&)> callback);
+
     std::string easyEscape(const std::string& text);
 
 private:
     static size_t writeFunction(void* ptr, size_t size, size_t nmemb, std::string* data) {
         data->append((char*) ptr, size * nmemb);
         return size * nmemb;
+    }
+
+    // 新增：流式回调静态函数
+    static size_t writeStreamCallback(void* ptr, size_t size, size_t nmemb, void* userdata) {
+        auto callbackData = static_cast<std::pair<std::string*, std::function<bool(const std::string&)>>*>(userdata);
+        std::string* buffer = callbackData->first;
+        auto& callback = callbackData->second;
+
+        const size_t realSize = size * nmemb;
+        const std::string data(static_cast<char*>(ptr), realSize);
+
+        *buffer += data;
+
+        // 查找并处理SSE消息 (格式: "data: {...}\n\n")
+        size_t pos = 0;
+        while ((pos = buffer->find("data: ", pos)) != std::string::npos) {
+            size_t end = buffer->find("\n\n", pos);
+            if (end != std::string::npos) {
+                std::string eventData = buffer->substr(pos + 6, end - pos - 6);
+                // 跳过 [DONE] 消息
+                if (eventData != "[DONE]") {
+                    // 如果回调返回false，表示用户要求停止接收数据
+                    if (!callback(eventData)) {
+                        return 0; // 停止传输
+                    }
+                } else {
+                    // 处理结束消息
+                    callback("[DONE]");
+                }
+                pos = end + 2;
+            } else {
+                break; // 等待更多数据
+            }
+        }
+
+        // 清理已处理的数据
+        if (pos > 0) {
+            *buffer = buffer->substr(pos);
+        }
+
+        return realSize;
     }
 
 private:
@@ -234,6 +279,36 @@ inline Response Session::makeRequest(const std::string& contentType) {
     return { response_string, is_error, error_msg };
 }
 
+inline void Session::makeStreamRequest(const std::string& contentType, std::function<bool(const std::string&)> callback) {
+    std::lock_guard<std::mutex> lock(mutex_request_);
+
+    struct curl_slist* headers = NULL;
+    if (!contentType.empty()) {
+        headers = curl_slist_append(headers, std::string{"Content-Type: " + contentType}.c_str());
+    }
+    headers = curl_slist_append(headers, std::string{"Authorization: Bearer " + token_}.c_str());
+    if (!organization_.empty()) {
+        headers = curl_slist_append(headers, std::string{"OpenAI-Organization: " + organization_}.c_str());
+    }
+    if (!beta_.empty()) {
+        headers = curl_slist_append(headers, std::string{"OpenAI-Beta: " + beta_}.c_str());
+    }
+    curl_easy_setopt(curl_, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(curl_, CURLOPT_URL, url_.c_str());
+
+    std::string buffer;
+    std::pair<std::string*, std::function<bool(const std::string&)>> callbackData(&buffer, callback);
+
+    curl_easy_setopt(curl_, CURLOPT_WRITEFUNCTION, writeStreamCallback);
+    curl_easy_setopt(curl_, CURLOPT_WRITEDATA, &callbackData);
+
+    res_ = curl_easy_perform(curl_);
+
+    if(res_ != CURLE_OK && throw_exception_) {
+        throw std::runtime_error("OpenAI curl_easy_perform() failed: " + std::string{curl_easy_strerror(res_)});
+    }
+}
+
 inline std::string Session::easyEscape(const std::string& text) {
     char *encoded_output = curl_easy_escape(curl_, text.c_str(), static_cast<int>(text.length()));
     const auto str = std::string{ encoded_output };
@@ -323,6 +398,9 @@ private:
 // Given a prompt, the model will return one or more predicted chat completions.
 struct CategoryChat {
     Json create(Json input);
+
+    // 新增：流式聊天方法
+    void stream(Json input, std::function<bool(const std::string&)> callback);
 
     CategoryChat(OpenAI& openai) : openai_{openai} {}
 
@@ -532,6 +610,11 @@ public:
           #endif
         }
         return json;
+    }
+
+    void postStream(const std::string& suffix, const Json& json, std::function<bool(const std::string&)> callback) {
+        setParameters(suffix, json.dump());
+        session_.makeStreamRequest("application/json", callback);
     }
 
     std::string easyEscape(const std::string& text) { return session_.easyEscape(text); }
@@ -883,6 +966,13 @@ inline Json CategoryCompletion::create(Json input) {
 // Creates a chat completion for the provided prompt and parameters
 inline Json CategoryChat::create(Json input) {
     return openai_.post("chat/completions", input);
+}
+
+// 新增：流式聊天方法
+inline void CategoryChat::stream(Json input, std::function<bool(const std::string&)> callback) {
+    // 确保流参数设置为true
+    input["stream"] = true;
+    openai_.postStream("chat/completions", input, callback);
 }
 
 // POST https://api.openai.com/v1/audio/transcriptions
