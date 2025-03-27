@@ -136,8 +136,8 @@ namespace loglib{
          */
         void log(std::string str,LogLevel level = INFO){
             _log_content=getLogLevel(level)+' '+str;
-            std::cout<<_log_content<<std::endl;
-            if(level==ERROR) std::cerr<<_log_content<<std::endl;
+            auto &logs=(level==ERROR)?std::cerr:std::cout;
+            logs<<_log_content<<std::endl;
             file_write(_log_content);
         }
 
@@ -149,11 +149,54 @@ namespace loglib{
         void tlog(std::string str,LogLevel level=INFO){
             std::string timestamp=getTime();
             _log_content="["+timestamp+"] "+getLogLevel(level)+' '+str;
-            if(level!=ERROR)
-                std::cout<<_log_content<<std::endl;
-            if(level==ERROR){
-                std::cerr<<_log_content<<std::endl;
-            }
+            auto &logs=(level==ERROR)?std::cerr:std::cout;
+            logs<<_log_content<<std::endl;
+            file_write(_log_content);
+        }
+        /**
+         * @brief 更新当前这一行的日志，不换行记录
+         * @param str 日志内容
+         * @param LogLevel 日志级别 - 默认 INFO
+         */
+        void llog(std::string str,LogLevel level=INFO){
+            _log_content=getLogLevel(level)+' '+str;
+            auto &logs=(level==ERROR)?std::cerr:std::cout;
+            // 输出控制 回到行
+            logs<<"\r"<<_log_content<<std::flush;
+        }
+        /**
+         * @brief 带时间戳的更新当前行的日志，不换行记录
+         * @param str 日志内容
+         * @param LogLevel 日志级别 - 默认 INFO
+         */
+        void tllog(std::string str,LogLevel level=INFO){
+            _log_content=getLogLevel(level)+' '+str;
+            auto &logs=(level==ERROR)?std::cerr:std::cout;
+            logs<<"\r"<<_log_content<<std::flush;
+        }
+        /**
+         * @brief 将上一条日志记录到文件
+         */
+        void fllog(){
+            file_write(_log_content);
+        }
+        /**
+         * @brief 向文件中写入日志
+         * @param str 日志内容
+         * @param level 日志级别 - 默认 INFO
+         */
+        void flog(std::string str,LogLevel level=INFO){
+            _log_content=getLogLevel(level)+' '+str;
+            file_write(_log_content);
+        }
+        /**
+         * @brief 向文件中写入带时间戳的日志
+         * @param str 日志内容
+         * @param level 日志级别 - 默认 INFO
+         */
+        void tflog(std::string str,LogLevel level=INFO){
+            std::string timestamp=getTime();
+            _log_content="["+timestamp+"] "+getLogLevel(level)+' '+str;
             file_write(_log_content);
         }
     };
