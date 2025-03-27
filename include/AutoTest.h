@@ -70,6 +70,8 @@ namespace acm{
         void init_system();
         // 对话
         json chat(const json &prompt,ConfigSign type=Model);
+        // 流式对话
+        void chat_stream(const json &prompt, ConfigSign type=Model,std::function<void(const json&)> messageCallback);
         // 获取题目名称
         string get_problem_name();
         // 处理function call
@@ -102,6 +104,7 @@ namespace acm{
         enum DataFloder{ inData,outData,acData };
         // 初始化其余配置
         bool init_temp();
+        // 字符串相似度匹配
     public:
         // 构造函数
         AutoTest(const string &name="");

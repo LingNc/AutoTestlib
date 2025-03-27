@@ -1,4 +1,5 @@
 #include "AutoTest.h"
+#include "AutoOpen.h"
 #include "Judge.h"
 #include "fstream"
 
@@ -64,6 +65,9 @@ namespace acm{
                 templog.tlog("模型不存在",loglib::ERROR);
             }
         }
+        else{
+            modelName=_setting[f(type)].get<string>();
+        }
         temp.update({
             { "model",modelName },
             { "messages",prompt },
@@ -73,7 +77,6 @@ namespace acm{
             });
         temp.update(_setting[f(Model_Config)]);
 
-        // std::cout<<temp.dump(4)<<std::endl;
         // 验证结果是否正确
         json result=_AI.chat.create(temp);
         if(result.type()!=json::value_t::object){
@@ -89,9 +92,98 @@ namespace acm{
                 ",错误信息: "+message+
                 ",返回数据: "+theData
                 ,loglib::ERROR);
+            // 检查是否有核心项缺失
+            if(temp["model"].empty()){
+                templog.tlog("模型名称缺失",loglib::ERROR);
+            }
+            else if(temp["messages"].empty()){
+                templog.tlog("消息内容缺失",loglib::ERROR);
+            }
+            else if(temp["response_format"].empty()){
+                templog.tlog("返回格式缺失",loglib::ERROR);
+            }
+            else if(temp["tools"].empty()){
+                templog.tlog("工具列表缺失",loglib::ERROR);
+            }
+            else if(temp["tool_choice"].empty()){
+                templog.tlog("工具选择缺失",loglib::ERROR);
+            }
+            else{
+                // 请求数据
+                templog.tlog("请求数据："+temp.dump(),loglib::ERROR);
+            }
         }
         return result;
     }
+
+    // 流式对话
+    void AutoTest::chat_stream(const json &prompt, ConfigSign type, std::function<void(const json&)> messageCallback) {
+        // 选择日志记录者
+        auto templog = (type==Named_Model) ? _log : _testlog;
+        json temp = {};
+        if(type==Model){
+            temp.update({
+                { "tools", _tools },
+                { "tool_choice", "auto" },
+            });
+        }
+
+        string modelName;
+        // 命名模型不存在则使用原始模型
+        if(_setting[f(type)].empty()){
+            if(type==Named_Model){
+                modelName=_setting[f(Model)].get<string>();
+            }
+            else{
+                templog.tlog("模型不存在",loglib::ERROR);
+                return;
+            }
+        }
+        else{
+            modelName=_setting[f(type)].get<string>();
+        }
+
+        temp.update({
+            { "model", modelName },
+            { "messages", prompt },
+            { "stream", true }  // 启用流式传输
+        });
+
+        // 更新配置，但不包含response_format（流式传输不支持json格式）
+        json configCopy = _setting[f(Model_Config)];
+        if (configCopy.contains("response_format")) {
+            configCopy.erase("response_format");
+        }
+        temp.update(configCopy);
+
+        // 使用流式API
+        _AI.chat.stream(temp, [&templog, messageCallback](const std::string& chunk) {
+            try {
+                if (chunk == "[DONE]") {
+                    return false; // 结束流
+                }
+
+                json response = json::parse(chunk);
+
+                // 处理每个增量消息
+                if (response.contains("choices") &&
+                    response["choices"].size() > 0 &&
+                    response["choices"][0].contains("delta")) {
+
+                    json delta = response["choices"][0]["delta"];
+                    if (!delta.empty() && messageCallback) {
+                        messageCallback(delta);
+                    }
+                }
+
+                return true; // 继续接收数据
+            } catch (const json::exception& e) {
+                templog.tlog("解析流式响应失败: " + std::string(e.what()), loglib::ERROR);
+                return false; // 遇到解析错误，停止流
+            }
+        });
+    }
+
     // 处理function call, 传入func calls，附带日志
     json AutoTest::handle_function(const json &func_calls){
         // 处理function call
@@ -160,7 +252,7 @@ namespace acm{
             string resultData=result["choices"][0]["message"]["content"];
             json resultJson=json::parse(resultData);
             string tempName=resultJson["name"];
-            _testlog.tlog("自动命名成功: "+tempName);
+            _log.tlog("自动命名成功: "+tempName);
             return tempName;
         }
         return _name;
@@ -300,11 +392,11 @@ namespace acm{
     // 初始化工具
     bool AutoTest::init_tools(const fs::path &path){
         // 默认工具
-        _setting[f(Tools)]=json::array();
+        _tools=json::array();
         json tempTool;
         // 从文件中读取
         tempTool=json::parse(rfile(path/"get_docs.json"));
-        _setting[f(Tools)].push_back(tempTool);
+        _tools.push_back(tempTool);
         return true;
     }
     // 初始化系统提示词
