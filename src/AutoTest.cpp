@@ -1,5 +1,5 @@
 #include "AutoTest.h"
-#include "AutoOpen.h"
+#include "AutoJson.h"
 #include "Judge.h"
 #include "fstream"
 
@@ -76,7 +76,7 @@ namespace acm{
             } }
             });
         temp.update(_setting[f(Model_Config)]);
-
+        std::cout<<temp.dump(4)<<std::endl;
         // 验证结果是否正确
         json result=_AI.chat.create(temp);
         if(result.type()!=json::value_t::object){
@@ -84,7 +84,10 @@ namespace acm{
         }
         // 并不是正确的返回
         if(result.find("id")==result.end()){
-            int errorCode=result["code"];
+            int errorCode=0;
+            if(result.contains("code")){
+                errorCode=result["code"];
+            }
             string message=result["message"];
             string theData=result["data"].dump();
             templog.tlog(
@@ -117,7 +120,7 @@ namespace acm{
     }
 
     // 流式对话
-    void AutoTest::chat_stream(const json &prompt, ConfigSign type, std::function<void(const json&)> messageCallback) {
+    void AutoTest::chat_stream(const json &prompt, std::function<void(const json&)> messageCallback,ConfigSign type) {
         // 选择日志记录者
         auto templog = (type==Named_Model) ? _log : _testlog;
         json temp = {};
@@ -162,18 +165,22 @@ namespace acm{
                 if (chunk == "[DONE]") {
                     return false; // 结束流
                 }
-
-                json response = json::parse(chunk);
+                // 除去前面的 "data:" 字符串
+                if (chunk.substr(0, 5) != "data:") {
+                    templog.tlog("流式数据格式错误: " + chunk, loglib::ERROR);
+                    return false; // 停止流
+                }
+                std::string jsonString = chunk.substr(5);
+                // 使用AutoOpen解析返回的JSON数据
+                ns::OpenAIResponse response = json::parse(jsonString);
 
                 // 处理每个增量消息
-                if (response.contains("choices") &&
-                    response["choices"].size() > 0 &&
-                    response["choices"][0].contains("delta")) {
-
-                    json delta = response["choices"][0]["delta"];
-                    if (!delta.empty() && messageCallback) {
-                        messageCallback(delta);
-                    }
+                if (!response.choices.empty() && !response.choices[0].message.content.empty() && messageCallback) {
+                    // 直接访问message.content而不是使用response["choices"][0]["delta"]
+                    json delta = {
+                        {"content", response.choices[0].message.content}
+                    };
+                    messageCallback(delta);
                 }
 
                 return true; // 继续接收数据
@@ -185,15 +192,15 @@ namespace acm{
     }
 
     // 处理function call, 传入func calls，附带日志
-    json AutoTest::handle_function(const json &func_calls){
+    json AutoTest::handle_function(const std::vector<ns::ToolCall> &func_calls){
         // 处理function call
         json result=json::array();
         for(auto &func_call:func_calls){
             json temp;
             temp["role"]="tool";
-            temp["tool_call_id"]=func_call["id"];
-            string funcName=func_call["function"]["name"];
-            json funcArgs=func_call["function"]["arguments"];
+            temp["tool_call_id"]=func_call.id;
+            string funcName=func_call.function.name;
+            json funcArgs=func_call.function.arguments;
             if(funcName=="get_docs"){
                 if(check_func_call(funcArgs,funcName).empty()){
                     string docsName=funcArgs["DocsName"];
@@ -248,8 +255,15 @@ namespace acm{
                 { "content",_prompt["askname"]+_problem }
                 });
             json result=chat(prompt,Named_Model);
-            // std::cout<<result<<std::endl;
-            string resultData=result["choices"][0]["message"]["content"];
+            std::cout<<result.dump(4)<<std::endl;
+            // 使用AutoOpen库解析返回值
+            ns::OpenAIResponse response = result;
+            string resultData = "";
+
+            if (!response.choices.empty()) {
+                resultData=response.choices[0].message.content;
+            }
+
             json resultJson=json::parse(resultData);
             string tempName=resultJson["name"];
             _log.tlog("自动命名成功: "+tempName);
@@ -265,32 +279,47 @@ namespace acm{
         };
         session.push_back(result);
         result=chat(session,useModel);
+
+        // 使用AutoOpen库解析返回值
+        ns::OpenAIResponse response=result;
+
         // 循环处理一次中的function calls
-        while(result["choices"][0]["finish_reason"]=="function_call"){
-            json tempData=result["choices"][0]["message"];
-            json tempCalls=tempData["function_calls"];
-            string tempContent=tempData["content"];
+        while(!response.choices.empty() && response.choices[0].finish_reason == "function_call"){
+            auto& message = response.choices[0].message;
+            // json tempData = {
+            //     {"content", choice.message.content},
+            //     {"function_calls", choice.message.tool_calls}
+            // };
+            // json tempCalls = tempData["function_calls"];
+            // string tempContent = tempData["content"];
+
             // 处理function call，并输出日志
-            json toolMessage=handle_function(tempCalls);
+            json toolMessage = handle_function(message.tool_calls);
+
             // 拼接历史记录
-            if(!tempContent.empty()){
+            if(!message.content.empty()){
                 session+={
                     {"role","assistant"},
-                    { "content",tempContent }
+                    { "content",message.content }
                 };
             }
             session+=toolMessage;
+
             // 发送请求
             result=chat(session);
+            response=result;
         }
+
         // 读取最后一次数据
-        session.push_back({
-            { "role","assistant" },
-            { "content",result["choices"][0]["message"]["content"] }
+        if(!response.choices[0].message.content.empty()) {
+            session.push_back({
+                { "role", "assistant" },
+                { "content", response.choices[0].message.content }
             });
+        }
+
         return 0;
     }
-
     // 更改密钥
     void AutoTest::set_key(const string &key){
         if(key.empty()){

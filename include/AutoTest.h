@@ -11,12 +11,10 @@
 #include "Process.h"
 #include "KeyCircle.h"
 #include "AutoConfig.h"
+#include "AutoJson.h"
 
 namespace acm{
-    using nlohmann::json;
-    typedef struct Config{
-
-    }Config;
+    using json=nlohmann::json;
     // 自动测试类
     class AutoTest{
         // 配置文件
@@ -71,11 +69,11 @@ namespace acm{
         // 对话
         json chat(const json &prompt,ConfigSign type=Model);
         // 流式对话
-        void chat_stream(const json &prompt, ConfigSign type=Model,std::function<void(const json&)> messageCallback);
+        void chat_stream(const json &prompt,std::function<void(const json&)> messageCallback, ConfigSign type=Model);
         // 获取题目名称
         string get_problem_name();
         // 处理function call
-        json handle_function(const json &func_calls);
+        json handle_function(const std::vector<ns::ToolCall> &func_calls);
         // 处理function call 参数名指定错误
         string check_func_call(const json &funcArgs,string &funcName);
         // 完全Ai，可以自动处理工具调用，可传入可选参数
