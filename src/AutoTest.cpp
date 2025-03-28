@@ -41,19 +41,17 @@ namespace acm{
         return _docs[DocsType][DocsName];
     }
     // 新增工具
-    void AutoTest::add_tool(const json &tool){
+    void AutoTest::add_tool(const ns::Tool &tool){
         _tools.push_back(tool);
     }
     // 对话
     json AutoTest::chat(const json &prompt,ConfigSign type){
         // 选择日志记录者
         auto templog=(type==Named_Model)?_log:_testlog;
-        json temp={};
+        ns::OpenAIRequest temp;
         if(type==Model){
-            temp.update({
-                { "tools",_tools },
-                { "tool_choice","auto" },
-                });
+            temp.tools=_tools;
+            temp.tool_choice="auto";
         }
         string modelName;
         // 命名模型不存在则使用原始模型
@@ -68,22 +66,29 @@ namespace acm{
         else{
             modelName=_setting[f(type)].get<string>();
         }
-        temp.update({
-            { "model",modelName },
-            { "messages",prompt },
-            { "response_format",{
-                { "type","json_object" }
-            } }
-            });
-        temp.update(_setting[f(Model_Config)]);
-        std::cout<<temp.dump(4)<<std::endl;
+        // 更新配置
+        temp.model=modelName;
+        temp.messages=prompt;
+        temp.response_format={ "json_object" };
+        // 添加默认配置
+        auto &modelConfig=_setting[f(Model_Config)];
+        temp.max_tokens=modelConfig[f(Max_Token)];
+        temp.temperature=modelConfig[f(Temperature)];
+        temp.top_p=modelConfig[f(Top_P)];
+        // 格式化
+        json requireData=temp;
+        std::cout<<requireData.dump(4)<<std::endl;
         // 验证结果是否正确
-        json result=_AI.chat.create(temp);
+        json result=_AI.chat.create(requireData);
         if(result.type()!=json::value_t::object){
             templog.tlog("出现错误,返回结果: "+result.dump(),loglib::ERROR);
         }
         // 并不是正确的返回
         if(result.find("id")==result.end()){
+            if(result.is_null()){
+                templog.tlog("请求失败,返回数据为空",loglib::ERROR);
+                return result;
+            }
             int errorCode=0;
             if(result.contains("code")){
                 errorCode=result["code"];
@@ -96,24 +101,24 @@ namespace acm{
                 ",返回数据: "+theData
                 ,loglib::ERROR);
             // 检查是否有核心项缺失
-            if(temp["model"].empty()){
+            if(temp.model.empty()){
                 templog.tlog("模型名称缺失",loglib::ERROR);
             }
-            else if(temp["messages"].empty()){
+            else if(temp.messages.empty()){
                 templog.tlog("消息内容缺失",loglib::ERROR);
             }
-            else if(temp["response_format"].empty()){
+            else if(!temp.response_format.has_value()){
                 templog.tlog("返回格式缺失",loglib::ERROR);
             }
-            else if(temp["tools"].empty()){
+            else if(!temp.tools.has_value()){
                 templog.tlog("工具列表缺失",loglib::ERROR);
             }
-            else if(temp["tool_choice"].empty()){
+            else if(!temp.tool_choice.has_value()){
                 templog.tlog("工具选择缺失",loglib::ERROR);
             }
             else{
                 // 请求数据
-                templog.tlog("请求数据："+temp.dump(),loglib::ERROR);
+                templog.tlog("请求数据："+requireData.dump(),loglib::ERROR);
             }
         }
         return result;
@@ -214,7 +219,7 @@ namespace acm{
                 // 获取函数列表
                 string funcList;
                 for(auto &tool:_tools){
-                    funcList+=tool["function"]["name"].get<string>()+", ";
+                    funcList+=tool.function.name+", ";
                 }
                 temp["content"]="你使用了未知函数: "+funcName+"应该使用的函数包括: "+funcList;
             }
@@ -257,8 +262,8 @@ namespace acm{
             json result=chat(prompt,Named_Model);
             std::cout<<result.dump(4)<<std::endl;
             // 使用AutoOpen库解析返回值
-            ns::OpenAIResponse response = result;
-            string resultData = "";
+            ns::OpenAIResponse response=result;
+            string resultData="";
 
             if (!response.choices.empty()) {
                 resultData=response.choices[0].message.content;
@@ -421,8 +426,7 @@ namespace acm{
     // 初始化工具
     bool AutoTest::init_tools(const fs::path &path){
         // 默认工具
-        _tools=json::array();
-        json tempTool;
+        ns::Tool tempTool;
         // 从文件中读取
         tempTool=json::parse(rfile(path/"get_docs.json"));
         _tools.push_back(tempTool);

@@ -15,6 +15,8 @@
 
 namespace acm{
     using json=nlohmann::json;
+    // 消息体
+    typedef std::vector<ns::RequestMessage> Session;
     // 自动测试类
     class AutoTest{
         // 配置文件
@@ -59,7 +61,7 @@ namespace acm{
         // AI对象
         openai::OpenAI _AI;
         // docs tools
-        json _tools;
+        std::vector<ns::Tool> _tools;
         // 初始化工具
         bool init_tools(const fs::path &path="./config/tools");
         // 历史记录
@@ -69,7 +71,7 @@ namespace acm{
         // 对话
         json chat(const json &prompt,ConfigSign type=Model);
         // 流式对话
-        void chat_stream(const json &prompt,std::function<void(const json&)> messageCallback, ConfigSign type=Model);
+        void chat_stream(const json &prompt,std::function<void(const json &)> messageCallback,ConfigSign type=Model);
         // 获取题目名称
         string get_problem_name();
         // 处理function call
@@ -107,7 +109,7 @@ namespace acm{
         // 构造函数
         AutoTest(const string &name="");
         // 新增AI工具
-        void add_tool(const json &tool);
+        void add_tool(const ns::Tool &tool);
         // 设置配置文件
         void config(ConfigSign key,ConfigSign value,ConfigSign target=Test);
         void config(const string key,const string value,ConfigSign target=Test);

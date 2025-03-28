@@ -12,7 +12,7 @@ namespace nlohmann{
     struct adl_serializer<std::optional<T>>{
         // 序列化 optional 到 JSON
         static void to_json(json &j,const std::optional<T> &opt){
-            if(opt.has_value()) j=opt.value();
+            if(opt) j=opt.value();
             else j=nullptr;
         }
         // 反序列化 JSON 到 optional
@@ -64,60 +64,114 @@ namespace nlohmann{
             }
         }
     };
-    template <>
-    struct adl_serializer<ns::RequestMessage>{
-        static void to_json(json &j,const ns::RequestMessage &msg){
-            std::visit([&j](auto &&value){
-                j=std::forward<decltype(value)>(value);
-                },msg);
-        }
+// template <>
+    // struct adl_serializer<ns::RequestMessage>{
+    //     static void to_json(json &j,const ns::RequestMessage &msg){
+    //         std::visit([&j](auto &&value){
+    //             j=std::forward<decltype(value)>(value);
+    //             },msg);
+    //     }
 
-        static void from_json(const json &j,ns::RequestMessage &msg){
-            if(!j.contains("role")){
-                throw detail::type_error::create(302,"缺少必须的 'role' 字段无法识别消息类型",&j);
-            }
+    //     static void from_json(const json &j,ns::RequestMessage &msg){
+    //         if(!j.contains("role")){
+    //             throw detail::type_error::create(302,"缺少必须的 'role' 字段无法识别消息类型",&j);
+    //         }
 
-            const std::string role=j["role"];
+    //         const std::string role=j["role"];
 
-            if(role=="system"){
-                msg=j.get<ns::SystemMessage>();
-            }
-            else if(role=="user"){
-                msg=j.get<ns::UserMessage>();
-            }
-            else if(role=="assistant"){
-                msg=j.get<ns::AssistantMessage>();
-            }
-            else if(role=="tool"){
-                msg=j.get<ns::ToolMessage>();
-            }
-            else{
-                throw detail::type_error::create(302,
-                    "未知的角色类型: "+role,&j);
-            }
-        }
-    };
-    template <>
-    struct adl_serializer<std::variant<std::string,ns::ToolChoice>>{
-        static void to_json(json &j,const std::variant<std::string,ns::ToolChoice> &v){
-            std::visit([&j](auto &&value){
-                j=std::forward<decltype(value)>(value);
-                },v);
-        }
+    //         if(role=="system"){
+    //             msg=j.get<ns::SystemMessage>();
+    //         }
+    //         else if(role=="user"){
+    //             msg=j.get<ns::UserMessage>();
+    //         }
+    //         else if(role=="assistant"){
+    //             msg=j.get<ns::AssistantMessage>();
+    //         }
+    //         else if(role=="tool"){
+    //             msg=j.get<ns::ToolMessage>();
+    //         }
+    //         else{
+    //             throw detail::type_error::create(302,
+    //                 "未知的角色类型: "+role,&j);
+    //         }
+    //     }
+    // };
+    // template <>
+    // struct adl_serializer<std::variant<std::string,ns::ToolChoice>>{
+    //     static void to_json(json &j,const std::variant<std::string,ns::ToolChoice> &v){
+    //         std::visit([&j](auto &&value){
+    //             j=std::forward<decltype(value)>(value);
+    //             },v);
+    //     }
 
-        static void from_json(const json &j,std::variant<std::string,ns::ToolChoice> &v){
-            if(j.is_string()){
-                v=j.get<std::string>();
-            }
-            else if(j.is_object()){
-                v=j.get<ns::ToolChoice>();
-            }
-            else{
-                throw detail::type_error::create(302,
-                    "无法将JSON值类型 "+std::string(j.type_name())+" 转换为 string 或 ToolChoice",&j);
-            }
-        }
-    };
+    //     static void from_json(const json &j,std::variant<std::string,ns::ToolChoice> &v){
+    //         if(j.is_string()){
+    //             v=j.get<std::string>();
+    //         }
+    //         else if(j.is_object()){
+    //             v=j.get<ns::ToolChoice>();
+    //         }
+    //         else{
+    //             throw detail::type_error::create(302,
+    //                 "无法将JSON值类型 "+std::string(j.type_name())+" 转换为 string 或 ToolChoice",&j);
+    //         }
+    //     }
+    // };
+    // template <>
+    // struct adl_serializer<ns::RequestMessage>{
+    //     static void to_json(json &j,const ns::RequestMessage &msg){
+    //         std::visit([&j](auto &&value){
+    //             j=std::forward<decltype(value)>(value);
+    //             },msg);
+    //     }
+
+    //     static void from_json(const json &j,ns::RequestMessage &msg){
+    //         if(!j.contains("role")){
+    //             throw detail::type_error::create(302,"缺少必须的 'role' 字段无法识别消息类型",&j);
+    //         }
+
+    //         const std::string role=j["role"];
+
+    //         if(role=="system"){
+    //             msg=j.get<ns::SystemMessage>();
+    //         }
+    //         else if(role=="user"){
+    //             msg=j.get<ns::UserMessage>();
+    //         }
+    //         else if(role=="assistant"){
+    //             msg=j.get<ns::AssistantMessage>();
+    //         }
+    //         else if(role=="tool"){
+    //             msg=j.get<ns::ToolMessage>();
+    //         }
+    //         else{
+    //             throw detail::type_error::create(302,
+    //                 "未知的角色类型: "+role,&j);
+    //         }
+    //     }
+    // };
+    // template <>
+    // struct adl_serializer<std::variant<std::string,ns::ToolChoice>>{
+    //     static void to_json(json &j,const std::variant<std::string,ns::ToolChoice> &v){
+    //         std::visit([&j](auto &&value){
+    //             j=std::forward<decltype(value)>(value);
+    //             },v);
+    //     }
+
+    //     static void from_json(const json &j,std::variant<std::string,ns::ToolChoice> &v){
+    //         if(j.is_string()){
+    //             v=j.get<std::string>();
+    //         }
+    //         else if(j.is_object()){
+    //             v=j.get<ns::ToolChoice>();
+    //         }
+    //         else{
+    //             throw detail::type_error::create(302,
+    //                 "无法将JSON值类型 "+std::string(j.type_name())+" 转换为 string 或 ToolChoice",&j);
+    //         }
+    //     }
+    // };
 }
 
 namespace ns{

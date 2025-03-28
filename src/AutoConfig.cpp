@@ -25,7 +25,7 @@ namespace acm{
         case Temperature:
             return "temperature";
         case Max_Token:
-            return "max_token";
+            return "max_tokens";
         case Top_P:
             return "top_p";
         case Tools:
