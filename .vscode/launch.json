@@ -1,0 +1,139 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "name": "g++ - 生成和调试活动文件",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/main",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "为 gdb 启用整齐打印",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "设置拆解风格为 intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+                // ,
+                // {
+                //     "description": "禁用信号停止",
+                //     "text": "handle SIGPIPE nostop noprint pass",
+                //     "ignoreFailures": true
+                // },
+                // {
+                //     "description": "设置分离子进程模式",
+                //     "text": "set detach-on-fork on",
+                //     "ignoreFailures": true
+                // },
+                // {
+                //     "description": "设置为追踪子进程",
+                //     "text": "set follow-fork-mode child",
+                //     "ignoreFailures": true
+                // },
+                // {
+                //     "description": "保留父进程",
+                //     "text": "set detach-on-fork off",
+                //     "ignoreFailures": true
+                // }
+            ],
+            "preLaunchTask": "make",
+            "miDebuggerPath": "/usr/bin/gdb"
+        },
+        {
+            "name": "g++ - 调试test",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/test/test",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "为 gdb 启用整齐打印",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "设置拆解风格为 intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "设置分离子进程模式",
+                    "text": "set detach-on-fork on",
+                    "ignoreFailures": true
+                }
+                // {
+                //     "description": "设置为追踪父进程",
+                //     "text": "set follow-fork-mode parent",
+                //     "ignoreFailures": true
+                // },
+                // {
+                //     "description": "保留父进程",
+                //     "text": "set detach-on-fork off",
+                //     "ignoreFailures": true
+                // }
+            ],
+            "preLaunchTask": "make test",
+            "miDebuggerPath": "/usr/bin/gdb"
+        },
+        {
+            "name": "g++ - 调试main",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/main",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "为 gdb 启用整齐打印",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "设置拆解风格为 intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "加载nlohmann JSON printers",
+                    "text": "source ${workspaceFolder}/.vscode/nlohmann-json.py"
+                },
+                {
+                    "description": "设置分离子进程模式",
+                    "text": "set detach-on-fork on",
+                    "ignoreFailures": true
+                }
+                // {
+                //     "description": "设置为追踪父进程",
+                //     "text": "set follow-fork-mode parent",
+                //     "ignoreFailures": true
+                // },
+                // {
+                //     "description": "保留父进程",
+                //     "text": "set detach-on-fork off",
+                //     "ignoreFailures": true
+                // }
+            ],
+            "preLaunchTask": "make main",
+            "miDebuggerPath": "/usr/bin/gdb"
+        }
+    ]
+}

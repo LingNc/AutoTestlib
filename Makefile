@@ -118,11 +118,8 @@ $(Test_base_dir)/test.S: $(Test_src) $(Include_test_files) $(Include_files)
 
 # ===清理===
 .PHONY: clean
-clean:
+clean: clean-main clean-test
 	@echo "正在清理所有..."
-	clean-main
-	clean-test
-	@echo "清理完成!"
 
 # 清理主程序
 .PHONY: clean-main
