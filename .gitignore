@@ -9,4 +9,5 @@ Code/
 !*.hpp
 !*.h
 !*.md
+!config/tools/*.json
 !Makefile

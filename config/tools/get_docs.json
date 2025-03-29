@@ -1,0 +1,24 @@
+{
+    "type": "function",
+    "function": {
+        "name": "get_docs",
+        "description": "获得Testlib函数库的参考文档的原始信息,用来作为重要的参考依据,有一个总的概括,和四个文档的详细描述: 包括Index文档的索引,General的总的一些函数和参数的用法和示意,Generators数据生成器文档,Validators数据验证器文档,Checkers数据检查器文档,Interactors数据交互器文档",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "DocsName": {
+                    "type": "string",
+                    "description": "文档的名称，对于New文档有6个参数候选项可以选择: ,\"index\",\"general\",\"generators\",\"validators\",\"checkers\",\"interactors\"。对于Old文档有5个参数候选项没有\"Index\""
+                },
+                "DocsType": {
+                    "type": "string",
+                    "description ": "文档的类型，选择新文档或者老文档，老文档是原始文档，可能可以提供一些更多的信息，新文档的内容会更加完善，详细，你有两个参数候选项可以选择: \"New\",\"Old\"。"
+                }
+            },
+            "required": [
+                "DocsName",
+                "DocsType"
+            ]
+        }
+    }
+}

@@ -50,7 +50,7 @@ namespace acm{
     };
     // 配置类
     class AutoConfig{
-        json _config;
+        json _data;
         fs::path _filePath;
     public:
         // 构造函数
@@ -63,11 +63,21 @@ namespace acm{
         // 保存到配置文件
         void save(size_t dumpNum=4);
         // 获取原数据
-        json &get();
+        json &value();
         // 操作符
         template<typename T>
         json &operator[](T key){
-            return _config[key];
+            return _data[key];
+        }
+        // =
+        template<typename T>
+        void operator=(T value){
+            _data=value;
+        }
+        // 获取指定类型原数据
+        template<typename T>
+        T get(){
+            return _data.get<T>();
         }
     };
 

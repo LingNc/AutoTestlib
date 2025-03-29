@@ -84,10 +84,10 @@ namespace acm{
                 throw std::runtime_error("AutoConfig: 无法创建文件: "+_filePath.string());
             }
             newFile.close();
-            _config=json::object();
+            _data=json::object();
         }
         else
-            _config=json::parse(configfile);
+            _data=json::parse(configfile);
     }
     // 检查配置文件是否存在且不为空
     bool AutoConfig::exist(){
@@ -111,11 +111,11 @@ namespace acm{
         if(!file.is_open()){
             throw std::runtime_error("AutoConfig: 无法打开文件: "+_filePath.string());
         }
-        file<<_config.dump(dumpNum);
+        file<<_data.dump(dumpNum);
         file.close();
     }
     // 获取原数据
-    json &AutoConfig::get(){
-        return _config;
+    json &AutoConfig::value(){
+        return _data;
     }
 }

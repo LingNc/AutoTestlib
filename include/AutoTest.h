@@ -15,8 +15,13 @@
 
 namespace acm{
     using json=nlohmann::json;
+    using Message=ns::Request::Message;
+    using ToolMessage=ns::Request::MultiMessage::Tool;
+    using Tool=ns::Request::Tool;
+    using UserMessage=ns::Request::MultiMessage::User;
+    using SystemMessage=ns::Request::MultiMessage::System;
     // 消息体
-    typedef std::vector<ns::RequestMessage> Session;
+    typedef std::vector<ns::Request::Message> Session;
     // 自动测试类
     class AutoTest{
         // 配置文件
@@ -31,6 +36,7 @@ namespace acm{
         // 测试路径配置文件
         AutoConfig _config;
         // 运行时配置文件
+        ns::TestConfig _temp_config;
         std::unordered_map<string,int> _temp_num;
         // 测试配置初始化
         void init_test_config();
@@ -61,7 +67,7 @@ namespace acm{
         // AI对象
         openai::OpenAI _AI;
         // docs tools
-        std::vector<ns::Tool> _tools;
+        std::vector<Tool> _tools;
         // 初始化工具
         bool init_tools(const fs::path &path="./config/tools");
         // 历史记录
@@ -75,7 +81,7 @@ namespace acm{
         // 获取题目名称
         string get_problem_name();
         // 处理function call
-        json handle_function(const std::vector<ns::ToolCall> &func_calls);
+        json handle_function(const std::vector<ns::Response::ToolCall> &func_calls);
         // 处理function call 参数名指定错误
         string check_func_call(const json &funcArgs,string &funcName);
         // 完全Ai，可以自动处理工具调用，可传入可选参数
@@ -109,7 +115,7 @@ namespace acm{
         // 构造函数
         AutoTest(const string &name="");
         // 新增AI工具
-        void add_tool(const ns::Tool &tool);
+        void add_tool(const ns::Request::Tool &tool);
         // 设置配置文件
         void config(ConfigSign key,ConfigSign value,ConfigSign target=Test);
         void config(const string key,const string value,ConfigSign target=Test);
