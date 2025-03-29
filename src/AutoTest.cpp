@@ -73,7 +73,10 @@ namespace acm{
         // 添加默认配置
         auto &modelConfig=_setting[f(Model_Config)];
         temp.max_tokens=modelConfig[f(Max_Token)];
-        temp.temperature=modelConfig[f(Temperature)];
+        if(type==Named_Model)
+            temp.temperature=0;
+        else
+            temp.temperature=modelConfig[f(Temperature)];
         temp.top_p=modelConfig[f(Top_P)];
         // 格式化
         json requireData=temp;
@@ -364,7 +367,7 @@ namespace acm{
             _setting[f(Floder_Number)]=0;
             // 模型默认设置
             _setting[f(Model_Config)]={
-                { "temperature",0.7 },
+                { "temperature",0.0 },
                 { "max_tokens",4096 },
                 { "top_p",1 }
             };
@@ -376,19 +379,34 @@ namespace acm{
         _config.set_path(_basePath/"config.json");
         if(!_config.exist()){
             _log.tlog("测试配置文件不存在，正在初始化配置文件",loglib::WARNING);
-            _config[f(Test_Name)]=_name;
+            ns::TestConfig tempConfig;
+            // 默认跟随路径
+            tempConfig.name=_name;
+            // _config[f(Test_Name)]=_name;
             // 默认跟随全局配置
-            _config[f(Attach_Global)]=true;
+            tempConfig.attach_global=true;
+            // _config[f(Attach_Global)]=true;
             // 生成测试数量，以及提供的初始化随机数值
-            _config[f(NowData)]=0;
+            tempConfig.data_num=10;
+            // _config[f(NowData)]=0;
             // 现在测试到的位置
-            _config[f(NowTest)]=0;
+            tempConfig.now_test=0;
+            // _config[f(NowTest)]=0;
             // 初始化特例数量
-            _config[f(Special)]=2;
+            tempConfig.special=2;
+            // _config[f(Special)]=2;
             // 初始化边界数量
-            _config[f(Edge)]=2;
+            tempConfig.edge=2;
+            // _config[f(Edge)]=2;
             // 错误限制
-            _config[f(ErrorLimit)]=2;
+            tempConfig.error_limit=2;
+            // _config[f(ErrorLimit)]=2;
+            // 默认内存限制
+            tempConfig.mem_limit=256;
+            // 默认时间限制
+            tempConfig.time_limit=1000;
+            // 转换格式
+            _config=tempConfig;
             _config.save();
         }
     }
@@ -446,7 +464,7 @@ namespace acm{
             history=json::array();
             history.push_back({
                 { "role","system" },
-                { "content",_prompt["system"]}
+                { "content",_prompt["system"] }
                 });
             _history.save();
         }
@@ -851,33 +869,58 @@ namespace acm{
             _testlog.tlog("未知生成器类型",loglib::ERROR);
             return false;
         }
-        string prompt;
-        _testlog.tlog("正在生成"+nameStr);
-        prompt=_prompt[f(name)];
-        // 处理请求
-        AI(prompt,session);
-        _testlog.tlog(nameStr+"生成成功");
-        // 读取数据
-        json result;
-        try{
-            result=json::parse(string(session.back()["content"]));
+        // 生成文件名
+        string targetName=f(name);
+        string srcName=targetName+".cpp";
+        fs::path targetPath=_basePath/targetName;
+        fs::path srcPath=_basePath/srcName;
+        // 文件是否存在标识符
+        bool srcExist=false;
+        // 检查文件是否存在
+        if(fs::exists(srcPath)){
+            _testlog.tlog(nameStr+"源文件已经存在");
+            srcExist=true;
         }
-        catch(const json::exception &e){
-            _testlog.tlog("JSON解析失败: "+string(e.what()),loglib::ERROR);
-            return false;
+        else{
+            _testlog.tlog("正在生成"+nameStr);
+            string prompt=_prompt[f(name)];
+            // 处理请求
+            AI(prompt,session);
+            _testlog.tlog(nameStr+"生成成功");
+            // 读取数据
+            json result;
+            try{
+                result=json::parse(string(session.back()["content"]));
+            }
+            catch(const json::exception &e){
+                _testlog.tlog("JSON解析失败: "+string(e.what()),loglib::ERROR);
+                return false;
+            }
+            string code=result["code"];
+            // 写入文件
+            wfile(srcPath,code);
         }
-        string code=result["code"];
-        // 写入文件
-        string fileName=f(name);
-        wfile(_basePath/string(fileName+".cpp"),code);
         // 编译文件
-        _testlog.tlog("正在编译"+nameStr);
-        process::Args args("g++");
-        args.add(fileName+".cpp").add("-o").add(fileName);
-        process::Process proc("/bin/g++",args);
-        proc.start();
-        process::Status status=proc.wait();
-        return status==process::STOP;
+        // 如果已经编译则不需要再编译，但是前提是前面不需要重新生成源代码
+        if(srcExist&&fs::exists(targetPath)){
+            _testlog.tlog(nameStr+"编译文件已经存在");
+            return true;
+        }
+        else{
+            _testlog.tlog("正在编译"+nameStr);
+            process::Args args("g++");
+            args.add(srcPath).add("-o").add(targetPath);
+            process::Process proc("/bin/g++",args);
+            proc.start();
+            process::Status status=proc.wait();
+            // 如果不是正常退出输出错误信息
+            if(status!=process::STOP){
+                _testlog.tlog(nameStr+"编译失败",loglib::ERROR);
+                _testlog.tlog("编译错误信息: "+proc.get_error(),loglib::ERROR);
+                return false;
+            }
+        }
+        return true;
     }
     // 生成测试工具
     AutoTest &AutoTest::ai_gen(){
@@ -891,14 +934,22 @@ namespace acm{
         }
         // 初始化提示词
         json &session=_history.value();
-        session.push_back({
-            { "role","user" },
-            { "content","完整题面为: "+_problem }
-            });
-        session.push_back({
-            { "role","user" },
-            { "content","AC代码为: "+_ACCode }
-            });
+        // 如果没有数据
+        if(session.size()<2){
+            session.push_back({
+                { "role","user" },
+                { "content","完整题面为: "+_problem }
+                });
+            session.push_back({
+                { "role","user" },
+                { "content","AC代码为: "+_ACCode }
+                });
+        }
+        else{
+            // 如果有就更新
+            session[1]["content"]="完整题面为: "+_problem;
+            session[2]["content"]="AC代码为: "+_ACCode;
+        }
         // 保存
         _history.save();
         bool temp;
@@ -944,8 +995,9 @@ namespace acm{
         runfile/=f(name);
         proc.load(runfile,args);
         _testlog.tlog("正在运行"+f(name));
-        proc.set_memout(_config[f(MemLimit)]);
-        proc.set_timeout(_config[f(TimeLimit)]);
+        auto config=_config.get<ns::TestConfig>();
+        proc.set_memout(config.mem_limit);
+        proc.set_timeout(config.time_limit);
         proc.start();
         // 等待运行结束
         res.status=proc.wait();
@@ -956,7 +1008,9 @@ namespace acm{
     // 生成数据
     bool AutoTest::generate_data(){
         // 检测是否已经编译和生成
-        if(fs::exists(f(Generators))&&fs::exists(f(Validators))&&fs::exists(f(Checkers))){
+        if(fs::exists(_basePath/f(Generators))&&
+            fs::exists(_basePath/f(Validators))&&
+            fs::exists(_basePath/f(Checkers))){
             _log.tlog("测试文件已经编译,开始生成数据");
         }
         else{
@@ -964,15 +1018,17 @@ namespace acm{
             return false;
         }
 
-        // 循环验证数据直到找到不一致的数据
+        // 循环生成并校验数据直到数据符合题目要求
         while(true){
-            int num=_config[f(NowData)];
-            num++;
+            auto config=_config.get<ns::TestConfig>();
+            // int num=_config[f(NowData)];
+            int num=config.now_data+1;
+            // num++;
             string info="第"+std::to_string(num)+"个测试点";
             _testlog.tlog("生成"+info);
             // 读取计数
             string dataName="data"+std::to_string(num);
-            _config[f(DataNum)]=dataName;
+            config.data_num=dataName;
             // 设置路径
             process::Args args;
             // 特判生成数量
@@ -983,7 +1039,7 @@ namespace acm{
                 args.add(f(Generators)).add(1).add(num).add(">").add(_dataDirs[inData]/(dataName+".in"));
                 Special_nums--;
             }
-            if(Edge_nums>0){
+            else if(Edge_nums>0){
                 args.add(f(Generators)).add(2).add(num).add(">").add(_dataDirs[inData]/(dataName+".in"));
                 Edge_nums--;
             }
@@ -991,6 +1047,7 @@ namespace acm{
                 args.add(f(Generators)).add(0).add(num).add(">").add(_dataDirs[inData]/(dataName+".in"));
             }
             // 生成数据并检查数据是否符合要求
+            _config.sync<ns::TestConfig>();
             Exit res=run(Generators,args);
             if(res.status==process::STOP){
                 _testlog.tlog(info+": 数据生成器运行成功");
@@ -1005,7 +1062,9 @@ namespace acm{
             res=run(Validators,args);
             if(res.status==process::STOP){
                 _testlog.tlog(info+": 数据验证成功");
-                _config[f(NowData)]=num;
+                // _config[f(NowData)]=num;
+                config.now_data=num;
+                _config=config;
                 _config.save();
             }
             else if(res.status==process::ERROR){
@@ -1109,9 +1168,13 @@ namespace acm{
         int error_nums=_config[f(ErrorLimit)];
         while(true){
             // 生成数据
-            generate_data();
+            if(!generate_data()){
+                return false;
+            }
             // 测试数据
-            test_data();
+            if(!test_data()){
+                return false;
+            }
             // 判断是否达到错误限制
             if(_config[f(JudgeStatus)]!=f(Accept)){
                 error_nums--;

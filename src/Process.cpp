@@ -218,7 +218,7 @@ namespace process{
     string Process::getline(char delimiter){
         return read_line(PIPE_OUT,delimiter);
     }
-    string Process::geterr(size_t nbytes){
+    string Process::get_error(size_t nbytes){
         if(nbytes==0){
             // 行读
             string result;

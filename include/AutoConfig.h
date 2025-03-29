@@ -2,6 +2,7 @@
 #define AUTOCONFIG_H
 
 #include <fstream>
+#include <any>
 #include "Self.h"
 #include "json.hpp"
 
@@ -50,6 +51,7 @@ namespace acm{
     };
     // 配置类
     class AutoConfig{
+        std::any _tempData;
         json _data;
         fs::path _filePath;
     public:
@@ -62,22 +64,29 @@ namespace acm{
         bool exist();
         // 保存到配置文件
         void save(size_t dumpNum=4);
-        // 获取原数据
+        // 获取JSON数据
         json &value();
+        // 同步数据
+        template<typename T>
+        void sync(){
+            _data=std::any_cast<T>(_tempData);
+        }
         // 操作符
         template<typename T>
         json &operator[](T key){
+            _tempData=_data.get<T>();
             return _data[key];
         }
         // =
         template<typename T>
         void operator=(T value){
+            _tempData=value;
             _data=value;
         }
-        // 获取指定类型原数据
+        // 获取指定类型原数据的引用
         template<typename T>
         T get(){
-            return _data.get<T>();
+            return std::any_cast<T&>(_tempData);
         }
     };
 

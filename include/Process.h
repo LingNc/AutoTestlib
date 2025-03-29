@@ -82,7 +82,7 @@ namespace process{
         // 读一行
         string getline(char delimiter='\n');
         // 读错误
-        string geterr(size_t nbytes=0);
+        string get_error(size_t nbytes=0);
         // 读字符
         char getchar();
         // 刷新输入
