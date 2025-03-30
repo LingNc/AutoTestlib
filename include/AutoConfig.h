@@ -64,6 +64,12 @@ namespace acm{
         bool exist();
         // 保存到配置文件
         void save(size_t dumpNum=4);
+        // 保存
+        template<typename T>
+        void save(T config){
+            sync<T>();
+            save();
+        }
         // 获取JSON数据
         json &value();
         // 同步数据
@@ -74,7 +80,7 @@ namespace acm{
         // 操作符
         template<typename T>
         json &operator[](T key){
-            _tempData=_data.get<T>();
+            // _tempData=_data.get<T>();
             return _data[key];
         }
         // =
@@ -85,8 +91,8 @@ namespace acm{
         }
         // 获取指定类型原数据的引用
         template<typename T>
-        T get(){
-            return std::any_cast<T&>(_tempData);
+        T &get(){
+            return std::any_cast<T &>(_tempData);
         }
     };
 

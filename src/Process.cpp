@@ -1,6 +1,7 @@
 #include "Process.h"
 #include "sysapi.h"
 #include <sstream>
+#include <fstream>
 #include <sys/resource.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -84,6 +85,14 @@ namespace process{
             // 通讯 进程开始
             _child_message.set_type(PIPE_WRITE);
             _child_message<<"Start"<<std::endl;
+
+            // 重定向到文件
+            if(_stdin_fd!=-1){
+                ::dup2(_stdin_fd,STDIN_FILENO);
+            }
+            if(_stdout_fd!=-1){
+                ::dup2(_stdout_fd,STDOUT_FILENO);
+            }
 
             // 运行子程序
             if(execvp(arg,args)==-1){
@@ -191,12 +200,40 @@ namespace process{
         if(_stdin.is_closed()){
             throw std::runtime_error(name+":进程写入错误！");
         }
-
         // 使用Pipe类的write方法直接写入字符串数据
         _stdin.write(data);
         return *this;
     }
-
+    Process &Process::write_to(fs::path file){
+        if(file.empty()){
+            throw std::invalid_argument(name+":写入文件路径错误！");
+        }
+        // 打开文件流
+        std::ofstream fileStream(file);
+        if(!fileStream.is_open()){
+            throw std::runtime_error(name+":无法打开文件 "+file.string());
+        }
+        // 将管道内容写入文件
+        string content=_stdin.read_all();
+        fileStream<<content;
+        fileStream.close();
+        return *this;
+    }
+    Process &Process::read_from(fs::path file){
+        if(file.empty()){
+            throw std::invalid_argument(name+":读取文件路径错误！");
+        }
+        // 读取文件原始内容写入管道
+        std::ifstream fileStream(file);
+        if(!fileStream.is_open()){
+            throw std::runtime_error(name+":无法打开文件 "+file.string());
+        }
+        std::string content((std::istreambuf_iterator<char>(fileStream)), std::istreambuf_iterator<char>());
+        fileStream.close();
+        // 将内容写入管道
+        _stdin.write(content);
+        return *this;
+    }
     string Process::read(PipeType type,size_t nbytes){
         Pipe &pipe=(type==PIPE_OUT)?_stdout:_stderr;
         return pipe.read_all(nbytes);
@@ -266,7 +303,25 @@ namespace process{
         _stdout.set_buffer_size(size);
         _stderr.set_buffer_size(size);
     }
-
+    // 设置子进程的标准输入输出流
+    void Process::set_stdin(Handle fd){
+        _stdin_fd=fd;
+    }
+    void Process::set_stdout(Handle fd){
+        _stdout_fd=fd;
+    }
+    void Process::set_stdin(fs::path file){
+        if(file.empty()){
+            throw std::invalid_argument(name+":设置stdin文件路径错误！");
+        }
+        _stdin_fd=::open(file.c_str(),O_RDONLY);
+    }
+    void Process::set_stdout(fs::path file){
+        if(file.empty()){
+            throw std::invalid_argument(name+":设置stdout文件路径错误！");
+        }
+        _stdout_fd=::open(file.c_str(),O_WRONLY|O_CREAT|O_TRUNC,0666);
+    }
     void Process::close(PipeType type){
         if(type==PIPE){
             _stdin.close();

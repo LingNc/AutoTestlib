@@ -148,9 +148,11 @@ namespace acm{
         struct Exit{
             process::Status status;
             int exit_code;
+            string content;
+            string error;
         };
         // 进行测试
-        Exit run(ConfigSign name,process::Args args);
+        Exit run(ConfigSign name,process::Args args,fs::path infile="",fs::path outfile="");
         // 生成数据
         bool generate_data();
         // 测试数据

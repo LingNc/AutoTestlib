@@ -730,7 +730,7 @@ namespace acm{
         _log.tlog("完整性验证成功");
         // 初始化AI - 构造
         _AI.setToken(_openaiKey.get());
-        // WARING 必须使用 https://..../V1/ 因为这个openai库不会自动补上这个/
+        // WARING 必须使用 https://..../v1/ 因为这个openai库不会自动补上这个/
         string tempURL=_setting[f(OpenAI_URL)];
         if(tempURL.back()!='/'){
             tempURL+='/';
@@ -986,7 +986,7 @@ namespace acm{
         return *this;
     }
     // 运行测试
-    AutoTest::Exit AutoTest::run(ConfigSign name,process::Args args){
+    AutoTest::Exit AutoTest::run(ConfigSign name,process::Args args,fs::path infile,fs::path outfile){
         // 运行测试
         fs::path runfile=_basePath;
         process::Process proc;
@@ -995,14 +995,25 @@ namespace acm{
         runfile/=f(name);
         proc.load(runfile,args);
         _testlog.tlog("正在运行"+f(name));
-        auto config=_config.get<ns::TestConfig>();
-        proc.set_memout(config.mem_limit);
-        proc.set_timeout(config.time_limit);
+        // 如果路径不为空，输入文件
+        if(!infile.empty()){
+            proc.set_stdin(infile);
+        }
+        // 如果路径不为空，输出文件
+        if(!outfile.empty()){
+            proc.set_stdout(outfile);
+        }
+        // auto config=_config.get<ns::TestConfig>();
+        proc.set_memout(_config[f(MemLimit)]);
+        proc.set_timeout(_config[f(TimeLimit)]);
         proc.start();
         // 等待运行结束
         res.status=proc.wait();
         res.exit_code=proc.get_exit_code();
-
+        res.error=proc.get_error();
+        if(outfile.empty()){
+            res.content=proc.read();
+        }
         return res;
     }
     // 生成数据
@@ -1020,15 +1031,15 @@ namespace acm{
 
         // 循环生成并校验数据直到数据符合题目要求
         while(true){
-            auto config=_config.get<ns::TestConfig>();
-            // int num=_config[f(NowData)];
-            int num=config.now_data+1;
-            // num++;
+            // auto config=_config.get<ns::TestConfig>();
+            int num=_config[f(NowData)];
+            // int num=config.now_data+1;
+            num++;
             string info="第"+std::to_string(num)+"个测试点";
             _testlog.tlog("生成"+info);
             // 读取计数
             string dataName="data"+std::to_string(num);
-            config.data_num=dataName;
+            _config[f(DataNum)]=dataName;
             // 设置路径
             process::Args args;
             // 特判生成数量
@@ -1036,44 +1047,50 @@ namespace acm{
             // 边界生成数量
             int &Edge_nums=_temp_config.edge;
             if(Special_nums>0){
-                args.add(f(Generators)).add(1).add(num).add(">").add(_dataDirs[inData]/(dataName+".in"));
+                args.add(f(Generators)).add(1).add(num);
                 Special_nums--;
             }
             else if(Edge_nums>0){
-                args.add(f(Generators)).add(2).add(num).add(">").add(_dataDirs[inData]/(dataName+".in"));
+                args.add(f(Generators)).add(2).add(num);
                 Edge_nums--;
             }
             else{
-                args.add(f(Generators)).add(0).add(num).add(">").add(_dataDirs[inData]/(dataName+".in"));
+                args.add(f(Generators)).add(0).add(num);
             }
             // 生成数据并检查数据是否符合要求
-            _config.sync<ns::TestConfig>();
-            Exit res=run(Generators,args);
+            // 同步设置
+            // _config.sync<ns::TestConfig>();
+            Exit res=run(Generators,args,"",_dataDirs[inData]/(dataName+".in"));
             if(res.status==process::STOP){
                 _testlog.tlog(info+": 数据生成器运行成功");
             }
             else{
-                _testlog.tlog(info+": 数据生成器运行失败",loglib::ERROR);
+                _testlog.tlog(info+": 数据生成器运行失败,错误信息："+res.error,loglib::ERROR);
                 return false;
             }
             // 运行数据验证器
             args.clear();
-            args.add(f(Validators)).add("<").add(_dataDirs[inData]/(dataName+".in"));
-            res=run(Validators,args);
+            args.add(f(Validators));
+            res=run(Validators,args,_dataDirs[inData]/(dataName+".in"));
             if(res.status==process::STOP){
                 _testlog.tlog(info+": 数据验证成功");
-                // _config[f(NowData)]=num;
-                config.now_data=num;
-                _config=config;
+                _config[f(NowData)]=num;
+                // config.now_data=num;
+                // _config=config;
                 _config.save();
             }
             else if(res.status==process::ERROR){
-                _testlog.tlog(info+": 数据生成不符合要求，正在重新生成",loglib::WARNING);
+                _testlog.tlog(info+": 数据生成不符合要求，正在重新生成。"+
+                    "不符合信息："+res.content,
+                    loglib::WARNING);
                 // 重新生成本次数据
                 continue;
             }
             else{
-                _testlog.tlog(info+": 数据验证器运行失败",loglib::ERROR);
+                _testlog.tlog(info+": 数据验证器运行失败。"+
+                    "错误信息："+res.error+
+                    "失败信息:"+res.content,
+                    loglib::ERROR);
                 return false;
             }
         }
@@ -1088,33 +1105,39 @@ namespace acm{
             _log.tlog("测试数据不存在,请先生成数据",loglib::ERROR);
             return false;
         }
+        // auto config=_config.get<ns::TestConfig>();
         int target_num=_config[f(NowData)];
-        int num=_config[f(NowData)];
+        int num=_config[f(NowTest)];
+        // int target_num=config.now_data;
+        // int &num=config.now_test;
         // 循环验证数据直到找到不一致的数据
         while(num<target_num){
             process::Args args;
-            num=_config[f(NowTest)];
+            // num=_config[f(NowTest)];
             num++;
             string info="第"+std::to_string(num)+"个测试点";
             _testlog.tlog("测试"+info);
             // 读取计数
             string dataName="data"+std::to_string(num);
             _config[f(DataNum)]=dataName;
+            // config.data_num=dataName;
             // 运行对应的Test代码
-            args.add(f(Test_Code)).add("<").add(_dataDirs[inData]/(dataName+".in")).add(">").add(_dataDirs[outData]/(dataName+".out"));
-            Exit res=run(Test_Code,args);
+            args.add(f(Test_Code));
+            Exit res=run(Test_Code,args,_dataDirs[inData]/(dataName+".in"),_dataDirs[outData]/(dataName+".out"));
             JudgeCode temp=judge(res.status,res.exit_code);
             _testlog.tlog(info+": 测试代码已运行");
             _config[f(JudgeStatus)]=f(temp);
             _config.save();
             // 运行对应的AC代码
             args.clear();
-            args.add(f(AC_Code)).add("<").add(_dataDirs[inData]/(dataName+".in")).add(">").add(_dataDirs[outData]/(dataName+".out"));
-            res=run(AC_Code,args);
+            args.add(f(AC_Code));
+            res=run(AC_Code,args,_dataDirs[inData]/(dataName+".in"),_dataDirs[outData]/(dataName+".out"));
             _testlog.tlog(info+": AC代码已运行");
             temp=judge(res.status,res.exit_code);
             if(temp!=Waiting){
-                _testlog.tlog("AC代码出现问题, 状态: "+f(temp),loglib::ERROR);
+                _testlog.tlog("AC代码出现问题, 状态: "+f(temp)+
+                    "错误信息: "+res.error
+                    ,loglib::ERROR);
                 return false;
             }
             // 如果已经判题
@@ -1122,6 +1145,7 @@ namespace acm{
                 _testlog.tlog("第"+std::to_string(num)+"个测试点,状态: "+string(_config[f(JudgeStatus)]));
                 // 把当前样例加入错误集合
                 add_WAdatas();
+                _config[f(NowTest)]=num;
                 continue;
             }
             // 开始判题
@@ -1133,6 +1157,8 @@ namespace acm{
             if(res.status==process::STOP){
                 _config[f(JudgeStatus)]=f(Accept);
                 _testlog.tlog(info+": "+f(Accept));
+                // 更新配置
+                _config[f(NowTest)]=num;
                 continue;
             }
             else if(res.status==process::ERROR){
@@ -1151,6 +1177,8 @@ namespace acm{
                     _testlog.tlog(info+": 状态 "+string(_config[f(JudgeStatus)]));
                     // 当前样例添加到错误集合
                     add_WAdatas();
+                    // 更新配置
+                    _config[f(NowTest)]=num;
                     continue;
                 }
             }

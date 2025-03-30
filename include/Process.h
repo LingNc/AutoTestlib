@@ -25,6 +25,8 @@ namespace process{
         std::atomic<Status> _status=STOP;
         // 管道
         Pipe _stdin,_stdout,_stderr;
+        // 文件描述符
+        Handle _stdin_fd=-1,_stdout_fd=-1,_stderr_fd=-1;
         // 子进程信息传递控制管道
         Pipe _child_message;
         // pid
@@ -77,8 +79,12 @@ namespace process{
         Status get_status() const;
         // 读取数据
         string read(PipeType type=PIPE_OUT,size_t nbytes=0);
+        // 读取到文件
+        Process &read_from(fs::path file);
         // 写入数据
         Process &write(const string &data);
+        // 写入文件到stdin
+        Process &write_to(fs::path file);
         // 读一行
         string getline(char delimiter='\n');
         // 读错误
@@ -109,7 +115,11 @@ namespace process{
         void clear_env();
         // 检查进程是否在运行
         bool is_running();
-
+        // 设置子进程的重定向
+        void set_stdin(fs::path file);
+        void set_stdin(Handle handle);
+        void set_stdout(fs::path file);
+        void set_stdout(Handle handle);
         // 设置超时
         Process &set_timeout(int timeout_ms);
         // 取消超时
