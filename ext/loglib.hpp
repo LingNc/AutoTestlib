@@ -15,10 +15,10 @@
 #include <ctime>
 #include <filesystem>
 
-/**
- * @namespace log
- * @brief 日志功能命名空间
- */
+ /**
+  * @namespace log
+  * @brief 日志功能命名空间
+  */
 namespace loglib{
     namespace fs=std::filesystem;
 
@@ -32,6 +32,21 @@ namespace loglib{
         DEBUG,    ///< 调试级别
         WARNING,  ///< 警告级别
         ERROR     ///< 错误级别
+    };
+
+    /**
+     * @enum ColorCode
+     * @brief 终端颜色代码枚举
+     */
+    enum ColorCode{
+        RESET=0,
+        RED=31,
+        GREEN=32,
+        YELLOW=33,
+        BLUE=34,
+        MAGENTA=35,
+        CYAN=36,
+        WHITE=37
     };
 
     /**
@@ -50,7 +65,7 @@ namespace loglib{
          * @param level 日志级别枚举值
          * @return 返回对应的日志级别字符串
          */
-        std::string getLogLevel(int level){
+        std::string get_string(LogLevel level){
             switch(level){
             case INFO:
                 return "[INFO]";
@@ -71,29 +86,53 @@ namespace loglib{
         }
 
         /**
+         * @brief 获取对应日志级别的颜色代码
+         * @param level 日志级别枚举值
+         * @return 返回对应的颜色代码
+         */
+        ColorCode get_color(LogLevel level){
+            switch(level){
+            case INFO:
+                return GREEN;
+                break;
+            case DEBUG:
+                return BLUE;
+                break;
+            case WARNING:
+                return YELLOW;
+                break;
+            case ERROR:
+                return RED;
+                break;
+            default:
+                return RESET;
+                break;
+            }
+        }
+
+        /**
+         * @brief 输出指定颜色的字体
+         * @param content 要输出的内容
+         * @param color 颜色代码
+         * @return 带颜色代码的字符串
+         */
+        std::string set_color(const std::string &content,LogLevel level){
+            return "\033["+std::to_string(get_color(level))+"m"+content+"\033[0m";
+        }
+
+        /**
          * @brief 获取当前时间的字符串表示
          * @return 返回格式化的时间字符串
          */
-        std::string getTime(){
+        std::string get_time(){
             std::time_t now_sec=std::time(nullptr);
             auto now=*std::localtime(&now_sec);
             char timestamp[20];
             std::strftime(timestamp,sizeof(timestamp),"%Y/%m/%d-%H:%M:%S",&now);
             std::string now_time=timestamp;
-            return now_time;
+            std::string stringTime="["+now_time+"]";
+            return stringTime;
         }
-
-        /**
-         * @brief 将内容写入日志文件
-         * @param content 要写入的内容
-         */
-        void file_write(std::string content){
-            std::ofstream logfile(_PATH/"server.log",std::ios::app);
-            if(!logfile.is_open()) std::cerr<<"[ERROR] 打开日志失败！"<<std::endl;
-            logfile<<content<<std::endl;
-            logfile.close();
-        }
-
     public:
         /**
          * @brief 构造函数
@@ -130,15 +169,30 @@ namespace loglib{
         }
 
         /**
+         * @brief 将内容写入日志文件
+         * @param content 要写入的内容
+         * @param level 日志等级
+         */
+        void wlog(std::string content){
+            std::ofstream log_file(_PATH/_name,std::ios::app);
+            if(log_file.is_open()){
+                log_file<<content<<std::endl;
+            }
+            else{
+                std::cerr<<set_color("无法打开日志文件！",ERROR)<<std::endl;
+            }
+        }
+
+        /**
          * @brief 记录指定级别的日志
          * @param level 日志级别 - 默认 INFO
          * @param str 日志内容
          */
-        void log(std::string str,LogLevel level = INFO){
-            _log_content=getLogLevel(level)+' '+str;
+        void log(std::string str,LogLevel level=INFO){
+            _log_content=get_string(level)+' '+str;
             auto &logs=(level==ERROR)?std::cerr:std::cout;
-            logs<<_log_content<<std::endl;
-            file_write(_log_content);
+            logs<<set_color(_log_content,level)<<std::endl;
+            wlog(_log_content);
         }
 
         /**
@@ -147,11 +201,10 @@ namespace loglib{
          * @param str 日志内容
          */
         void tlog(std::string str,LogLevel level=INFO){
-            std::string timestamp=getTime();
-            _log_content="["+timestamp+"] "+getLogLevel(level)+' '+str;
+            _log_content=get_time()+" "+get_string(level)+" "+str;
             auto &logs=(level==ERROR)?std::cerr:std::cout;
-            logs<<_log_content<<std::endl;
-            file_write(_log_content);
+            logs<<set_color(_log_content,level)<<std::endl;
+            wlog(_log_content);
         }
         /**
          * @brief 更新当前这一行的日志，不换行记录
@@ -159,10 +212,10 @@ namespace loglib{
          * @param LogLevel 日志级别 - 默认 INFO
          */
         void llog(std::string str,LogLevel level=INFO){
-            _log_content=getLogLevel(level)+' '+str;
+            _log_content=get_string(level)+" "+str;
             auto &logs=(level==ERROR)?std::cerr:std::cout;
             // 输出控制 回到行
-            logs<<"\r"<<_log_content<<std::flush;
+            logs<<"\r"<<set_color(_log_content,level)<<std::flush;
         }
         /**
          * @brief 带时间戳的更新当前行的日志，不换行记录
@@ -170,15 +223,15 @@ namespace loglib{
          * @param LogLevel 日志级别 - 默认 INFO
          */
         void tllog(std::string str,LogLevel level=INFO){
-            _log_content=getLogLevel(level)+' '+str;
+            _log_content=get_time()+" "+get_string(level)+" "+str;
             auto &logs=(level==ERROR)?std::cerr:std::cout;
-            logs<<"\r"<<_log_content<<std::flush;
+            logs<<"\r"<<set_color(_log_content,level)<<std::flush;
         }
         /**
          * @brief 将上一条日志记录到文件
          */
         void fllog(){
-            file_write(_log_content);
+            wlog(_log_content);
         }
         /**
          * @brief 向文件中写入日志
@@ -186,8 +239,8 @@ namespace loglib{
          * @param level 日志级别 - 默认 INFO
          */
         void flog(std::string str,LogLevel level=INFO){
-            _log_content=getLogLevel(level)+' '+str;
-            file_write(_log_content);
+            _log_content=get_string(level)+' '+str;
+            wlog(_log_content);
         }
         /**
          * @brief 向文件中写入带时间戳的日志
@@ -195,9 +248,8 @@ namespace loglib{
          * @param level 日志级别 - 默认 INFO
          */
         void tflog(std::string str,LogLevel level=INFO){
-            std::string timestamp=getTime();
-            _log_content="["+timestamp+"] "+getLogLevel(level)+' '+str;
-            file_write(_log_content);
+            _log_content=get_time()+" "+get_string(level)+" "+str;
+            wlog(_log_content);
         }
     };
 }
