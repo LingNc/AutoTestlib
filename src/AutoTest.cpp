@@ -82,7 +82,14 @@ namespace acm{
         json requireData=temp;
         // std::cout<<requireData.dump(4)<<std::endl;
         // 验证结果是否正确
-        json result=_AI.chat.create(requireData);
+        json result;
+        try{
+            result=_AI.chat.create(requireData);
+        }
+        catch(std::exception &e){
+            templog.tlog("OpenAI请求出现异常: "+string(e.what()),loglib::ERROR);
+            return result;
+        }
         if(result.type()!=json::value_t::object){
             templog.tlog("出现错误,返回结果: "+result.dump(),loglib::ERROR);
         }
@@ -267,7 +274,14 @@ namespace acm{
             //     { "content",_prompt["askname"]+_problem }
             //     });
             prompt.push_back(temp);
-            json result=chat(prompt,Named_Model);
+            json result;
+            while(result.empty()){
+                result=chat(prompt,Named_Model);
+                if(result.empty()){
+                    _log.tlog("获取名字为空，正在尝试5秒后重新获取",loglib::WARNING);
+                    sleep(5);
+                }
+            }
             // std::cout<<result.dump(4)<<std::endl;
             // 使用AutoOpen库解析返回值
             ns::Response response=result;
@@ -718,6 +732,8 @@ namespace acm{
         // _temp_config.edge=_config[f(Edge)];
         // _temp_num[f(Special)]=_config[f(Special)];
         // _temp_num[f(Edge)]=_config[f(Edge)];
+        // 初始化随机数存储
+        _randomSeed.set_path(_basePath/"inData"/"seed.json");
         return true;
     }
     // 初始化配置文件夹
@@ -747,7 +763,7 @@ namespace acm{
         }
         // 初始化日志
         _testlog.set_logPath(_basePath);
-        _testlog.set_logName(_name+".log");
+        _testlog.set_logName("test.log");
         _testlog.tlog("测试日志开始运行");
         // 重设需要的文件路径
         _problemfile=_basePath/"problem.md";
@@ -813,7 +829,7 @@ namespace acm{
         }
         // 读入日志文件
         _testlog.set_logPath(_basePath);
-        _testlog.set_logName(_name+".log");
+        _testlog.set_logName("test.log");
         // 初始化AI - 构造
         string tempURL=_setting[f(OpenAI_URL)];
         if(!_config[f(Attach_Global)]){
@@ -1016,6 +1032,19 @@ namespace acm{
         }
         return res;
     }
+    // 生成随机字符串
+    string AutoTest::random_string(int length){
+        // 生成随机字符串
+        static const char alphanum[] =
+            "0123456789"
+            "abcdefghijklmnopqrstuvwxyz";
+        string result;
+        result.reserve(length);
+        for(int i=0;i<length;i++){
+            result+=alphanum[rand()%sizeof(alphanum)-1];
+        }
+        return result;
+    }
     // 生成数据
     bool AutoTest::generate_data(){
         // 检测是否已经编译和生成
@@ -1046,16 +1075,19 @@ namespace acm{
             int &Special_nums=_temp_config.special;
             // 边界生成数量
             int &Edge_nums=_temp_config.edge;
+            // 生成随机哈希
+            string hash=random_string(8);
+            _randomSeed[dataName]=hash;
             if(Special_nums>0){
-                args.add(f(Generators)).add(1).add(num);
+                args.add(f(Generators)).add(1).add(hash);
                 Special_nums--;
             }
             else if(Edge_nums>0){
-                args.add(f(Generators)).add(2).add(num);
+                args.add(f(Generators)).add(2).add(hash);
                 Edge_nums--;
             }
             else{
-                args.add(f(Generators)).add(0).add(num);
+                args.add(f(Generators)).add(0).add(hash);
             }
             // 生成数据并检查数据是否符合要求
             // 同步设置
@@ -1078,6 +1110,7 @@ namespace acm{
                 // config.now_data=num;
                 // _config=config;
                 _config.save();
+                _randomSeed.save();
             }
             else if(res.status==process::ERROR){
                 _testlog.tlog(info+": 数据生成不符合要求，正在重新生成。"+

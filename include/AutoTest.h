@@ -110,7 +110,10 @@ namespace acm{
         enum DataFloder{ inData,outData,acData };
         // 初始化其余配置
         bool init_temp();
-        // 字符串相似度匹配
+        // 生成随机字符串
+        string random_string(int length);
+        // 随机数种子保存
+        AutoConfig _randomSeed;
     public:
         // 构造函数
         AutoTest(const string &name="");
