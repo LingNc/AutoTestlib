@@ -75,9 +75,7 @@ namespace acm{
     // 设置路径
     void AutoConfig::set_path(const fs::path &file){
         _filePath=file;
-        exist();
-        std::ifstream configfile(_filePath);
-        if(!configfile.is_open()){
+        if(!exist()){
             // 文件不存在则创建新的文件
             std::ofstream newFile(_filePath);
             if(!newFile.is_open()){
@@ -86,8 +84,15 @@ namespace acm{
             newFile.close();
             _data=json::object();
         }
-        else
-            _data=json::parse(configfile);
+        else{
+            std::ifstream configfile(_filePath);
+            try{
+                _data=json::parse(configfile);
+            }
+            catch(const json::parse_error &e){
+                throw std::runtime_error("AutoConfig: 无法解析文件: "+_filePath.string());
+            }
+        }
     }
     // 检查配置文件是否存在且不为空
     bool AutoConfig::exist(){

@@ -390,7 +390,7 @@ namespace acm{
     }
     // 测试配置初始化
     void AutoTest::init_test_config(){
-        _config.set_path(_basePath/"config.json");
+        _config.set_path(_baseConfigPath/"config.json");
         if(!_config.exist()){
             _log.tlog("测试配置文件不存在，正在初始化配置文件",loglib::WARNING);
             ns::TestConfig tempConfig;
@@ -401,16 +401,16 @@ namespace acm{
             tempConfig.attach_global=true;
             // _config[f(Attach_Global)]=true;
             // 生成测试数量，以及提供的初始化随机数值
-            tempConfig.data_num=10;
+            tempConfig.now_data=0;
             // _config[f(NowData)]=0;
             // 现在测试到的位置
             tempConfig.now_test=0;
             // _config[f(NowTest)]=0;
             // 初始化特例数量
-            tempConfig.special=2;
+            tempConfig.special=10;
             // _config[f(Special)]=2;
             // 初始化边界数量
-            tempConfig.edge=2;
+            tempConfig.edge=10;
             // _config[f(Edge)]=2;
             // 错误限制
             tempConfig.error_limit=2;
@@ -421,6 +421,10 @@ namespace acm{
             tempConfig.time_limit=1000;
             // 转换格式
             _config=tempConfig;
+            // cph文件名称（源文件名称）
+            _config["origin_name"]=_testfile.filename();
+            // 找到test文件中对应的cph
+            _config["cph_file"]=search_test_cph();
             _config.save();
         }
     }
@@ -472,7 +476,7 @@ namespace acm{
     // 初始化系统提示词
     void AutoTest::init_system(){
         // 初始化系统提示词
-        _history.set_path(_basePath/"history.json");
+        _history.set_path(_baseConfigPath/"history.json");
         if(!_history.exist()){
             auto &history=_history.value();
             history=json::array();
@@ -625,6 +629,8 @@ namespace acm{
             return false;
         }
         _cph=path;
+        // 保存cph路径
+        _config["cph_path"]=_cph.string();
         return true;
     }
     // 完整性验证
@@ -700,6 +706,8 @@ namespace acm{
         if(!fs::exists(_basePath)){
             fs::create_directories(_basePath);
         }
+        //  设定初始化配置文件夹
+        _baseConfigPath=_basePath/"config";
         return true;
     }
     // 初始化共有
@@ -712,6 +720,12 @@ namespace acm{
                 _basePath/"outData",
                 _basePath/"acData"
             };
+            if(!fs::exists(_dataDirs[0])){
+                // 初始化测试数量
+                _config[f(NowData)]=0;
+                _config[f(NowTest)]=0;
+                _config.save();
+            }
             for(const auto &dir:_dataDirs){
                 if(!fs::exists(dir)){
                     try{
@@ -728,12 +742,8 @@ namespace acm{
         }
         // 初始化临时存储数字
         _temp_config=_config.value();
-        // _temp_config.special=_config[f(Special)];
-        // _temp_config.edge=_config[f(Edge)];
-        // _temp_num[f(Special)]=_config[f(Special)];
-        // _temp_num[f(Edge)]=_config[f(Edge)];
         // 初始化随机数存储
-        _randomSeed.set_path(_basePath/"inData"/"seed.json");
+        _randomSeed.set_path(_baseConfigPath/"seed.json");
         return true;
     }
     // 初始化配置文件夹
@@ -765,6 +775,8 @@ namespace acm{
         _testlog.set_logPath(_basePath);
         _testlog.set_logName("test.log");
         _testlog.tlog("测试日志开始运行");
+        // 初始化测试配置
+        init_test_config();
         // 重设需要的文件路径
         _problemfile=_basePath/"problem.md";
         _testfile=_basePath/"test.cpp";
@@ -774,16 +786,19 @@ namespace acm{
         wfile(_testfile,_testCode);
         wfile(_ACfile,_ACCode);
         _testlog.tlog("文件写入成功");
-        // 初始化测试配置
-        init_test_config();
         // 初始化历史记录
         init_system();
         // 初始化错误样例集合
-        _WAdatas.set_path(_basePath/"WAdatas.json");
+        _WAdatas.set_path(_baseConfigPath/"WAdatas.json");
         if(!_WAdatas.exist()){
             _log.tlog("正在初始化错误样例集合");
             _WAdatas.value()=json::array();
             _WAdatas.save();
+        }
+        // 配置可执行文件路径
+        _baseProgramPath=_basePath/"exec";
+        if(!fs::exists(_baseProgramPath)){
+            fs::create_directories(_baseProgramPath);
         }
         // 初始化其他配置
         init_temp();
@@ -888,7 +903,7 @@ namespace acm{
         // 生成文件名
         string targetName=f(name);
         string srcName=targetName+".cpp";
-        fs::path targetPath=_basePath/targetName;
+        fs::path targetPath=_baseProgramPath/targetName;
         fs::path srcPath=_basePath/srcName;
         // 文件是否存在标识符
         bool srcExist=false;
@@ -965,6 +980,8 @@ namespace acm{
             // 如果有就更新
             session[1]["content"]="完整题面为: "+_problem;
             session[2]["content"]="AC代码为: "+_ACCode;
+            // 并截断后面的数据
+            session.erase(session.begin()+3,session.end());
         }
         // 保存
         _history.save();
@@ -1002,15 +1019,13 @@ namespace acm{
         return *this;
     }
     // 运行测试
-    AutoTest::Exit AutoTest::run(ConfigSign name,process::Args args,fs::path infile,fs::path outfile,bool setLimit){
+    AutoTest::Exit AutoTest::run(fs::path program,process::Args args,fs::path infile,fs::path outfile,bool setLimit){
         // 运行测试
-        fs::path runfile=_basePath;
         process::Process proc;
         // 返回值
         Exit res;
-        runfile/=f(name);
-        proc.load(runfile,args);
-        _testlog.tlog("正在运行"+f(name));
+        proc.load(program,args);
+        // _testlog.tlog("正在运行"+program.string());
         // 如果路径不为空，输入文件
         if(!infile.empty()){
             proc.set_stdin(infile);
@@ -1029,6 +1044,10 @@ namespace acm{
         res.status=proc.wait();
         res.exit_code=proc.get_exit_code();
         res.error=proc.get_error();
+        // 去除回车
+        if(*res.error.rbegin()=='\n'){
+            res.error.pop_back();
+        }
         if(outfile.empty()){
             res.content=proc.read();
         }
@@ -1041,16 +1060,16 @@ namespace acm{
         string result;
         result.reserve(length);
         for(int i=0;i<length;i++){
-            result+=alphanum[rand()%sizeof(alphanum)-1];
+            result+=alphanum[rand()%(sizeof(alphanum)-1)];
         }
         return result;
     }
     // 生成数据
     bool AutoTest::generate_data(int testnum){
         // 检测是否已经编译和生成
-        if(fs::exists(_basePath/f(Generators))&&
-            fs::exists(_basePath/f(Validators))&&
-            fs::exists(_basePath/f(Checkers))){
+        if(fs::exists(_baseProgramPath/f(Generators))&&
+            fs::exists(_baseProgramPath/f(Validators))&&
+            fs::exists(_baseProgramPath/f(Checkers))){
             _log.tlog("测试文件已经编译,开始生成数据");
         }
         else{
@@ -1092,7 +1111,10 @@ namespace acm{
             // 生成数据并检查数据是否符合要求
             // 同步设置
             // _config.sync<ns::TestConfig>();
-            Exit res=run(Generators,args,"",_dataDirs[inData]/(dataName+".in"),false);
+            Exit res=run(_baseProgramPath/f(Generators),
+                args,"",
+                _dataDirs[inData]/(dataName+".in"),
+                false);
             if(res.status==process::STOP){
                 _testlog.tlog(info+": 数据生成器运行成功");
             }
@@ -1103,7 +1125,7 @@ namespace acm{
             // 运行数据验证器
             args.clear();
             args.add(f(Validators));
-            res=run(Validators,args,_dataDirs[inData]/(dataName+".in"),"",false);
+            res=run(_baseProgramPath/f(Validators),args,_dataDirs[inData]/(dataName+".in"),"",false);
             if(res.status==process::STOP){
                 _testlog.tlog(info+": 数据验证成功");
                 _config[f(NowData)]=num;
@@ -1131,34 +1153,31 @@ namespace acm{
     }
     // 测试数据
     bool AutoTest::test_data(){
+        process::Args args;
         // 检测测试代码和AC代码是否编译
-        if(!fs::exists(_basePath/f(Test_Code))){
+        if(!fs::exists(_baseProgramPath/f(Test_Code))){
+            args.clear();
             // 编译test代码
-            process::Args args("g++");
-            args.add(_basePath/"test.cpp").add("-o").add(_basePath/f(Test_Code));
-            process::Process proc("/bin/g++",args);
+            args.add("g++").add(_testfile).add("-o").add(_baseProgramPath/f(Test_Code));
             _testlog.tlog("正在编译测试代码");
-            proc.start();
-            process::Status status=proc.wait();
+            Exit res=run("/bin/g++",args,"","",false);
             // 如果不是正常退出输出错误信息
-            if(status!=process::STOP){
-                _testlog.tlog("测试代码编译失败",loglib::ERROR);
-                _testlog.tlog("编译错误信息: "+proc.get_error(),loglib::ERROR);
+            if(res.status!=process::STOP){
+                _testlog.tlog("测试代码编译失败\n编译错误信息: "+res.error
+                    ,loglib::ERROR);
                 return false;
             }
         }
-        if(!fs::exists(_basePath/f(AC_Code))){
+        if(!fs::exists(_baseProgramPath/f(AC_Code))){
+            args.clear();
             // 编译AC代码
-            process::Args args("g++");
-            args.add(_basePath/"AC.cpp").add("-o").add(_basePath/f(AC_Code));
-            process::Process proc("/bin/g++",args);
+            args.add("g++").add(_ACfile).add("-o").add(_baseProgramPath/f(AC_Code));
             _testlog.tlog("正在编译AC代码");
-            proc.start();
-            process::Status status=proc.wait();
+            Exit res=run("/bin/g++",args,"","",false);
             // 如果不是正常退出输出错误信息
-            if(status!=process::STOP){
-                _testlog.tlog("AC代码编译失败",loglib::ERROR);
-                _testlog.tlog("编译错误信息: "+proc.get_error(),loglib::ERROR);
+            if(res.status!=process::STOP){
+                _testlog.tlog("AC代码编译失败\n编译错误信息: "+res.error
+                    ,loglib::ERROR);
                 return false;
             }
         }
@@ -1189,10 +1208,9 @@ namespace acm{
         // int target_num=config.now_data;
         // int &num=config.now_test;
         // 循环验证数据直到找到不一致的数据
-        num--;
-        while(num<target_num){
-            num++;
-            process::Args args;
+        do{
+            if(num>target_num) break;
+            args.clear();
             string info="第"+std::to_string(num)+"个测试点";
             _testlog.tlog("测试"+info);
             // 读取计数
@@ -1201,7 +1219,10 @@ namespace acm{
             // config.data_num=dataName;
             // 运行对应的Test代码
             args.add(f(Test_Code));
-            Exit res=run(Test_Code,args,_dataDirs[inData]/(dataName+".in"),_dataDirs[outData]/(dataName+".out"));
+            Exit res=run(_baseProgramPath/f(Test_Code),
+                args,
+                _dataDirs[inData]/(dataName+".in"),
+                _dataDirs[outData]/(dataName+".out"));
             JudgeCode temp;
             if(res.status==process::STOP){
                 temp=judge(res.status,res.exit_code);
@@ -1216,7 +1237,10 @@ namespace acm{
             // 运行对应的AC代码
             args.clear();
             args.add(f(AC_Code));
-            res=run(AC_Code,args,_dataDirs[inData]/(dataName+".in"),_dataDirs[acData]/(dataName+".out"));
+            res=run(_baseProgramPath/f(AC_Code),
+                args,
+                _dataDirs[inData]/(dataName+".in"),
+                _dataDirs[acData]/(dataName+".out"));
             if(res.status==process::STOP){
                 _testlog.tlog(info+": AC代码已运行");
                 temp=judge(res.status,res.exit_code);
@@ -1236,7 +1260,7 @@ namespace acm{
                 _testlog.tlog("第"+std::to_string(num)+"个测试点,状态: "+string(_config[f(JudgeStatus)]),loglib::WARNING);
                 // 把当前样例加入错误集合
                 add_WAdatas();
-                _config[f(NowTest)]=num;
+                _config[f(NowTest)]=num+1;
                 continue;
             }
             // 开始判题
@@ -1244,12 +1268,16 @@ namespace acm{
             args.clear();
             args.add(f(Checkers)).add(_dataDirs[inData]/(dataName+".in")).add(_dataDirs[outData]/(dataName+".out")).add(_dataDirs[acData]/(dataName+".out"));
             // 运行数据检查器
-            res=run(Checkers,args,"","",false);
+            res=run(_baseProgramPath/f(Checkers),
+                args,
+                "",
+                "",
+                false);
             if(res.status==process::STOP){
                 _config[f(JudgeStatus)]=f(Accept);
                 _testlog.tlog(info+": "+f(Accept));
                 // 更新配置
-                _config[f(NowTest)]=num;
+                _config[f(NowTest)]=num+1;
                 continue;
             }
             else if(res.status==process::ERROR){
@@ -1274,7 +1302,7 @@ namespace acm{
                     // 当前样例添加到错误集合
                     add_WAdatas();
                     // 更新配置
-                    _config[f(NowTest)]=num;
+                    _config[f(NowTest)]=num+1;
                     continue;
                 }
             }
@@ -1296,6 +1324,7 @@ namespace acm{
                 return false;
             }
         }
+        while(num++);
         return true;
     }
     // 开始自动对拍
@@ -1316,7 +1345,7 @@ namespace acm{
             if(_config[f(JudgeStatus)]!=f(Accept)){
                 error_nums--;
                 if(error_nums<=0){
-                    _testlog.tlog("错误限制达到,自动对拍结束",loglib::ERROR);
+                    _testlog.tlog("错误限制达到,自动对拍结束",loglib::WARNING);
                     return false;
                 }
             }
@@ -1332,22 +1361,30 @@ namespace acm{
             { "in",in },
             { "out",out }
         };
+        // 去重
+        if(std::find(_WAdatas.value().begin(),_WAdatas.value().end(),temp)!=_WAdatas.value().end()){
+            _testlog.tlog("错误样例已经存在,跳过添加",loglib::WARNING);
+            return;
+        }
         _WAdatas.value().push_back(temp);
         _WAdatas.save();
+        add_to_cph();
     }
-    void AutoTest::add_to_cph(){
+    string AutoTest::search_test_cph(){
         // 如果cph路径被赋值才会执行
         if(_cph=="."||_cph.empty()){
-            return;
+            return "";
         }
         // 在cph文件夹中找到包含name的文件
         std::vector<fs::path> matched_files;
 
+        string waitName=_config["origin_name"];
+        waitName="."+waitName+"_";
         try{
             // 遍历CPH文件夹中的所有文件
             for(const auto &entry:fs::directory_iterator(_cph)){
                 // 检查是否是文件且文件名包含指定的字符串
-                if(fs::is_regular_file(entry)&&entry.path().filename().string().find(_name)!=string::npos){
+                if(fs::is_regular_file(entry)&&entry.path().filename().string().find(waitName)!=string::npos){
                     matched_files.push_back(entry.path());
                     _testlog.tlog("找到匹配的CPH文件: "+entry.path().string());
                 }
@@ -1355,21 +1392,20 @@ namespace acm{
 
             if(matched_files.empty()){
                 _testlog.tlog("CPH: 未找到包含 "+_name+" 的CPH文件",loglib::WARNING);
-                return;
-            }
-
-            // 对找到的文件执行操作...
-            // 例如，可以将 in 和 out 添加到这些文件中
-            for(const auto &file:matched_files){
-                _testlog.tlog("CPH: 处理文件: "+file.string());
-                // 具体的处理逻辑...
+                return "";
             }
         }
         catch(const std::exception &e){
             _testlog.tlog("CPH: 查找文件时出错: "+string(e.what()),loglib::ERROR);
         }
+        return matched_files[0];
+    }
+    void AutoTest::add_to_cph(){
+        if(_config["cph_file"].empty()){
+            return;
+        }
         // 以json的方式打开这个文件
-        fs::path first_file=matched_files[0];
+        fs::path first_file=_config["cph_file"];
         json cph_json;
         // 读取json文件
         try{

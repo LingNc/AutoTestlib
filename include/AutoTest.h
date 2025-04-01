@@ -37,13 +37,16 @@ namespace acm{
         AutoConfig _config;
         // 运行时配置文件
         ns::TestConfig _temp_config;
-        std::unordered_map<string,int> _temp_num;
         // 测试配置初始化
         void init_test_config();
         // 测试程序名称
         string _name;
-        // 数据路径
+        // 测试数据路径
         fs::path _basePath=".";
+        // 测试配置文件夹路径
+        fs::path _baseConfigPath;
+        // 测试可执行文件的文件夹路径
+        fs::path _baseProgramPath;
         // 题目文件
         fs::path _problemfile;
         string _problem;
@@ -100,8 +103,10 @@ namespace acm{
         void add_WAdatas();
         // cph路径
         fs::path _cph=".";
-        // 设置cph路径
+        // 设置cph文件夹路径
         bool set_cph(const fs::path &path);
+        // 查找对应cph文件路径
+        string search_test_cph();
         // 修改源文件目录下.cph配置，将错误样例自动加入
         void add_to_cph();
         // 数据存储文件夹
@@ -155,7 +160,7 @@ namespace acm{
             string error;
         };
         // 进行测试
-        Exit run(ConfigSign name,process::Args args,fs::path infile="",fs::path outfile="",bool setLimit=true);
+        Exit run(fs::path program,process::Args args,fs::path infile="",fs::path outfile="",bool setLimit=true);
         // 生成数据
         bool generate_data(int testnum=1);
         // 测试数据

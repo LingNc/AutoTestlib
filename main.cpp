@@ -1,6 +1,44 @@
 #include <iostream>
 #include "AutoTest.h"
 
+// 从文件夹中查找包含特定字符串的文件名返回第一个
+string find_file_in(fs::path path,string filename){
+    if(!fs::exists(path)){
+        std::cerr<<"文件夹不存在: "<<path.string()<<std::endl;
+    }
+    std::vector<fs::path> matchFiles;
+    try{
+        for(const auto &entry:fs::directory_iterator(path)){
+            if(fs::is_regular_file(entry)&&entry.path().filename().string().find(filename)!=string::npos){
+                matchFiles.push_back(entry.path());
+            }
+        }
+        if(matchFiles.empty()){
+            return "";
+        }
+    }
+    catch(const std::exception &e){
+        std::cerr<<"查找文件时出错: "<<e.what()<<std::endl;
+        return "";
+    }
+    return matchFiles[0];
+}
+
+// 是否有测试文件对应的ac和题目文件
+bool have_test_files(fs::path testPath){
+    fs::path folderPath=testPath.parent_path();
+    string testName=testPath.filename().string();
+    string acName=testName.substr(0,testName.size()-4)+"-ac.cpp";
+    string mdName=testName.substr(0,testName.size()-3)+"md";
+    if(find_file_in(folderPath,acName)==""){
+        return false;
+    }
+    if(find_file_in(folderPath,mdName)==""){
+        return false;
+    }
+    return true;
+}
+
 int main(){
     acm::AutoTest test;
     // 是否进行一些基础的配置
@@ -45,17 +83,24 @@ int main(){
     }
     else{
         fs::path testCode,ACCode,problem;
-        // std::cout<<"请输入题目路径：";
-        // std::cin>>problem;
-        problem="./Code/C.md";
-        test.set_problem(problem);
-        // std::cout<<"请输入测试代码路径：";
-        // std::cin>>testCode;
-        testCode="./Code/C.cpp";
+        std::cout<<"请输入测试代码路径：";
+        std::cin>>testCode;
+        // testCode="./Code/C.cpp";
         test.set_testCode(testCode);
-        // std::cout<<"请输入AC代码路径：";
-        // std::cin>>ACCode;
-        ACCode="./Code/C-ac.cpp";
+        if(have_test_files(testCode)){
+            problem=testCode.parent_path()/(testCode.filename().string().substr(0,testCode.filename().string().size()-4)+".md");
+            ACCode=testCode.parent_path()/(testCode.filename().string().substr(0,testCode.filename().string().size()-4)+"-ac.cpp");
+
+        }
+        else{
+            std::cout<<"请输入题目路径：";
+            std::cin>>problem;
+            std::cout<<"请输入AC代码路径：";
+            std::cin>>ACCode;
+        }
+        // problem="./Code/C.md";
+        test.set_problem(problem);
+        // ACCode="./Code/C-ac.cpp";
         test.set_ACCode(ACCode);
         // 初始化
         test.init();
