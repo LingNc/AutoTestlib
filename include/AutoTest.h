@@ -155,9 +155,9 @@ namespace acm{
             string error;
         };
         // 进行测试
-        Exit run(ConfigSign name,process::Args args,fs::path infile="",fs::path outfile="");
+        Exit run(ConfigSign name,process::Args args,fs::path infile="",fs::path outfile="",bool setLimit=true);
         // 生成数据
-        bool generate_data();
+        bool generate_data(int testnum=1);
         // 测试数据
         bool test_data();
         // 开始自动对拍

@@ -96,12 +96,18 @@ namespace process{
 
             // 运行子程序
             if(execvp(arg,args)==-1){
-                exit(EXIT_FAILURE);
+                if(!fs::exists(arg)){
+                    std::cerr<<""+name+":子程序不存在！路径:"+string(arg)<<std::endl;
+                }
+                else{
+                    std::cerr<<""+name+":子程序执行失败!"<<std::endl;
+                }
+                exit(10);
             }
         }
         else if(_pid<0){
             _status=ERROR;
-            throw std::runtime_error(name+":子程序运行失败！");
+            throw std::runtime_error(name+":子程序创建失败！");
         }
         _status=RUNNING;
         _stdin.set_type(PIPE_WRITE);

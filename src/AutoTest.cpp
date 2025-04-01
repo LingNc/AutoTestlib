@@ -226,7 +226,7 @@ namespace acm{
                 }
             }
             else{
-                _testlog.tlog(_setting[f(Model)].get<string>()+"使用了未知的函数: "+funcName,loglib::ERROR);
+                _testlog.tlog(_setting[f(Model)].get<string>()+": 使用了未知的函数: "+funcName,loglib::ERROR);
                 // 获取函数列表
                 string funcList;
                 for(auto &tool:_tools){
@@ -1002,7 +1002,7 @@ namespace acm{
         return *this;
     }
     // 运行测试
-    AutoTest::Exit AutoTest::run(ConfigSign name,process::Args args,fs::path infile,fs::path outfile){
+    AutoTest::Exit AutoTest::run(ConfigSign name,process::Args args,fs::path infile,fs::path outfile,bool setLimit){
         // 运行测试
         fs::path runfile=_basePath;
         process::Process proc;
@@ -1020,8 +1020,10 @@ namespace acm{
             proc.set_stdout(outfile);
         }
         // auto config=_config.get<ns::TestConfig>();
-        proc.set_memout(_config[f(MemLimit)]);
-        proc.set_timeout(_config[f(TimeLimit)]);
+        if(setLimit){
+            proc.set_memout(_config[f(MemLimit)]);
+            proc.set_timeout(_config[f(TimeLimit)]);
+        }
         proc.start();
         // 等待运行结束
         res.status=proc.wait();
@@ -1035,9 +1037,7 @@ namespace acm{
     // 生成随机字符串
     string AutoTest::random_string(int length){
         // 生成随机字符串
-        static const char alphanum[] =
-            "0123456789"
-            "abcdefghijklmnopqrstuvwxyz";
+        static const char alphanum[]="0123456789abcdefghijklmnopqrstuvwxyz";
         string result;
         result.reserve(length);
         for(int i=0;i<length;i++){
@@ -1046,7 +1046,7 @@ namespace acm{
         return result;
     }
     // 生成数据
-    bool AutoTest::generate_data(){
+    bool AutoTest::generate_data(int testnum){
         // 检测是否已经编译和生成
         if(fs::exists(_basePath/f(Generators))&&
             fs::exists(_basePath/f(Validators))&&
@@ -1059,7 +1059,7 @@ namespace acm{
         }
 
         // 循环生成并校验数据直到数据符合题目要求
-        while(true){
+        while(testnum--){
             // auto config=_config.get<ns::TestConfig>();
             int num=_config[f(NowData)];
             // int num=config.now_data+1;
@@ -1092,7 +1092,7 @@ namespace acm{
             // 生成数据并检查数据是否符合要求
             // 同步设置
             // _config.sync<ns::TestConfig>();
-            Exit res=run(Generators,args,"",_dataDirs[inData]/(dataName+".in"));
+            Exit res=run(Generators,args,"",_dataDirs[inData]/(dataName+".in"),false);
             if(res.status==process::STOP){
                 _testlog.tlog(info+": 数据生成器运行成功");
             }
@@ -1103,7 +1103,7 @@ namespace acm{
             // 运行数据验证器
             args.clear();
             args.add(f(Validators));
-            res=run(Validators,args,_dataDirs[inData]/(dataName+".in"));
+            res=run(Validators,args,_dataDirs[inData]/(dataName+".in"),"",false);
             if(res.status==process::STOP){
                 _testlog.tlog(info+": 数据验证成功");
                 _config[f(NowData)]=num;
@@ -1127,9 +1127,41 @@ namespace acm{
                 return false;
             }
         }
+        return true;
     }
     // 测试数据
     bool AutoTest::test_data(){
+        // 检测测试代码和AC代码是否编译
+        if(!fs::exists(_basePath/f(Test_Code))){
+            // 编译test代码
+            process::Args args("g++");
+            args.add(_basePath/"test.cpp").add("-o").add(_basePath/f(Test_Code));
+            process::Process proc("/bin/g++",args);
+            _testlog.tlog("正在编译测试代码");
+            proc.start();
+            process::Status status=proc.wait();
+            // 如果不是正常退出输出错误信息
+            if(status!=process::STOP){
+                _testlog.tlog("测试代码编译失败",loglib::ERROR);
+                _testlog.tlog("编译错误信息: "+proc.get_error(),loglib::ERROR);
+                return false;
+            }
+        }
+        if(!fs::exists(_basePath/f(AC_Code))){
+            // 编译AC代码
+            process::Args args("g++");
+            args.add(_basePath/"AC.cpp").add("-o").add(_basePath/f(AC_Code));
+            process::Process proc("/bin/g++",args);
+            _testlog.tlog("正在编译AC代码");
+            proc.start();
+            process::Status status=proc.wait();
+            // 如果不是正常退出输出错误信息
+            if(status!=process::STOP){
+                _testlog.tlog("AC代码编译失败",loglib::ERROR);
+                _testlog.tlog("编译错误信息: "+proc.get_error(),loglib::ERROR);
+                return false;
+            }
+        }
         // 检测测试数据是否已经生成
         if(_config.value().find(f(DataNum))!=_config.value().end()){
             _log.tlog("测试数据已经生成,开始测试数据");
@@ -1141,13 +1173,26 @@ namespace acm{
         // auto config=_config.get<ns::TestConfig>();
         int target_num=_config[f(NowData)];
         int num=_config[f(NowTest)];
+        // 检测第num个测试点文件是否存在
+        while(true){
+            string fileName="data"+std::to_string(num)+".in";
+            if(!fs::exists(_dataDirs[inData]/fileName)){
+                num++;
+            }
+            else{
+                break;
+            }
+            if(num>target_num){
+                _testlog.tlog("没有可以测试的测试点",loglib::WARNING);
+            }
+        }
         // int target_num=config.now_data;
         // int &num=config.now_test;
         // 循环验证数据直到找到不一致的数据
+        num--;
         while(num<target_num){
-            process::Args args;
-            // num=_config[f(NowTest)];
             num++;
+            process::Args args;
             string info="第"+std::to_string(num)+"个测试点";
             _testlog.tlog("测试"+info);
             // 读取计数
@@ -1157,25 +1202,38 @@ namespace acm{
             // 运行对应的Test代码
             args.add(f(Test_Code));
             Exit res=run(Test_Code,args,_dataDirs[inData]/(dataName+".in"),_dataDirs[outData]/(dataName+".out"));
-            JudgeCode temp=judge(res.status,res.exit_code);
-            _testlog.tlog(info+": 测试代码已运行");
-            _config[f(JudgeStatus)]=f(temp);
-            _config.save();
+            JudgeCode temp;
+            if(res.status==process::STOP){
+                temp=judge(res.status,res.exit_code);
+                _testlog.tlog(info+": 测试代码已运行");
+                _config[f(JudgeStatus)]=f(temp);
+                _config.save();
+            }
+            else{
+                _testlog.tlog(info+": 测试代码运行失败,错误信息: "+res.error,loglib::ERROR);
+                return false;
+            }
             // 运行对应的AC代码
             args.clear();
             args.add(f(AC_Code));
-            res=run(AC_Code,args,_dataDirs[inData]/(dataName+".in"),_dataDirs[outData]/(dataName+".out"));
-            _testlog.tlog(info+": AC代码已运行");
-            temp=judge(res.status,res.exit_code);
-            if(temp!=Waiting){
-                _testlog.tlog("AC代码出现问题, 状态: "+f(temp)+
-                    "错误信息: "+res.error
-                    ,loglib::ERROR);
+            res=run(AC_Code,args,_dataDirs[inData]/(dataName+".in"),_dataDirs[acData]/(dataName+".out"));
+            if(res.status==process::STOP){
+                _testlog.tlog(info+": AC代码已运行");
+                temp=judge(res.status,res.exit_code);
+                if(temp!=Waiting){
+                    _testlog.tlog("AC代码出现问题, 状态: "+f(temp)+
+                        "错误信息: "+res.error
+                        ,loglib::ERROR);
+                    return false;
+                }
+            }
+            else{
+                _testlog.tlog(info+": AC代码运行失败,错误信息: "+res.error,loglib::ERROR);
                 return false;
             }
             // 如果已经判题
             if(_config[f(JudgeStatus)].get<string>()!=f(Waiting)){
-                _testlog.tlog("第"+std::to_string(num)+"个测试点,状态: "+string(_config[f(JudgeStatus)]));
+                _testlog.tlog("第"+std::to_string(num)+"个测试点,状态: "+string(_config[f(JudgeStatus)]),loglib::WARNING);
                 // 把当前样例加入错误集合
                 add_WAdatas();
                 _config[f(NowTest)]=num;
@@ -1186,7 +1244,7 @@ namespace acm{
             args.clear();
             args.add(f(Checkers)).add(_dataDirs[inData]/(dataName+".in")).add(_dataDirs[outData]/(dataName+".out")).add(_dataDirs[acData]/(dataName+".out"));
             // 运行数据检查器
-            res=run(Checkers,args);
+            res=run(Checkers,args,"","",false);
             if(res.status==process::STOP){
                 _config[f(JudgeStatus)]=f(Accept);
                 _testlog.tlog(info+": "+f(Accept));
@@ -1204,10 +1262,15 @@ namespace acm{
                     else if(actual_code==2){
                         _config[f(JudgeStatus)]=f(PresentationError);
                     }
-                    else{
-                        _config[f(JudgeStatus)]=f(RuntimeError);
+                    else if(actual_code==10){
+                        _testlog.tlog(info+"数据检查器运行失败。"+"\n输出信息:"+res.content+"\n错误信息:"+res.error,loglib::ERROR);
+                        return false;
                     }
-                    _testlog.tlog(info+": 状态 "+string(_config[f(JudgeStatus)]));
+                    else{
+                        _testlog.tlog(info+"数据检查器运行失败。\n未知退出状态:"+res.error+"\n输出信息:"+res.content,loglib::ERROR);
+                        return false;
+                    }
+                    _testlog.tlog(info+": 状态 "+string(_config[f(JudgeStatus)]),loglib::WARNING);
                     // 当前样例添加到错误集合
                     add_WAdatas();
                     // 更新配置
@@ -1216,7 +1279,20 @@ namespace acm{
                 }
             }
             else{
-                _testlog.tlog(info+"数据检查器运行失败",loglib::ERROR);
+                string statusString;
+                if(res.status==process::RE){
+                    statusString="RuntimeError";
+                }
+                else if(res.status==process::TIMEOUT){
+                    statusString="TimeOut";
+                }
+                else if(res.status==process::MEMOUT){
+                    statusString="MemoryOut";
+                }
+                else{
+                    statusString="未知错误";
+                }
+                _testlog.tlog(info+"数据检查器运行失败。\n退出状态:"+statusString+"\n错误信息:"+res.error+"\n输出信息:"+res.content,loglib::ERROR);
                 return false;
             }
         }
@@ -1248,7 +1324,7 @@ namespace acm{
     }
     // 添加错误集合
     void AutoTest::add_WAdatas(){
-        string dataName=_config[f(NowData)];
+        string dataName=_config[f(DataNum)];
         string in=rfile(_dataDirs[inData]/(dataName+".in"));
         string out=rfile(_dataDirs[acData]/(dataName+".out"));
         // 添加到错误样例集合
