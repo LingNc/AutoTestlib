@@ -33,11 +33,14 @@ namespace acm{
     }
     // 获取文档
     string AutoTest::get_docs(const string &DocsName,const string &DocsType){
-        if(_docs.find(DocsName)==_docs.end()){
+        if(_docs.find(DocsType)==_docs.end()){
+            return "文档类型不存在: "+DocsType;
+        }
+        if(_docs[DocsType].find(DocsName)==_docs[DocsType].end()){
             return "文档不存在: "+DocsName;
         }
         if(DocsType.empty()){
-            return _docs[DocsName];
+            return _docs["new"][DocsName];
         }
         return _docs[DocsType][DocsName];
     }
@@ -49,10 +52,10 @@ namespace acm{
     json AutoTest::chat(const json &prompt,ConfigSign type){
         // 选择日志记录者
         auto templog=(type==Named_Model)?_log:_testlog;
-        ns::Request temp;
+        json temp={};
         if(type==Model){
-            temp.tools=_tools;
-            temp.tool_choice="auto";
+            temp["tools"]=_tools;
+            temp["tool_choice"]=_config["tool_choice"];
         }
         string modelName;
         // 命名模型不存在则使用原始模型
@@ -68,17 +71,13 @@ namespace acm{
             modelName=_setting[f(type)].get<string>();
         }
         // 更新配置
-        temp.model=modelName;
-        temp.messages=prompt;
-        temp.response_format={ "json_object" };
+        temp.update({
+            { "model",modelName },
+            { "messages",prompt },
+            { "response_format",{ { "type","json_object" } } }
+            });
         // 添加默认配置
-        auto &modelConfig=_setting[f(Model_Config)];
-        temp.max_tokens=modelConfig[f(Max_Token)];
-        if(type==Named_Model)
-            temp.temperature=0;
-        else
-            temp.temperature=modelConfig[f(Temperature)];
-        temp.top_p=modelConfig[f(Top_P)];
+        temp.update(_setting[f(Model_Config)]);
         // 格式化
         json requireData=temp;
         // std::cout<<requireData.dump(4)<<std::endl;
@@ -112,24 +111,33 @@ namespace acm{
                 ",返回数据: "+theData
                 ,loglib::ERROR);
             // 检查是否有核心项缺失
-            if(temp.model.empty()){
+            // Use the Response structure to check for missing fields
+            ns::Request temp=result;
+
+            // Log specific missing fields in order of importance
+            if(result.find("error")!=result.end()){
+                string errorType=result["error"]["type"];
+                string errorMsg=result["error"]["message"];
+                templog.tlog("API错误: "+errorType+" - "+errorMsg,loglib::ERROR);
+            }
+            else if(temp.model.empty()){
                 templog.tlog("模型名称缺失",loglib::ERROR);
             }
             else if(temp.messages.empty()){
                 templog.tlog("消息内容缺失",loglib::ERROR);
             }
-            else if(!temp.response_format.has_value()){
+            else if(!temp.response_format.has_value()&&type==Model){
                 templog.tlog("返回格式缺失",loglib::ERROR);
             }
-            else if(!temp.tools.has_value()){
+            else if(!temp.tools.has_value()&&type==Model){
                 templog.tlog("工具列表缺失",loglib::ERROR);
             }
-            else if(!temp.tool_choice.has_value()){
+            else if(!temp.tool_choice.has_value()&&type==Model){
                 templog.tlog("工具选择缺失",loglib::ERROR);
             }
             else{
-                // 请求数据
-                templog.tlog("请求数据："+requireData.dump(),loglib::ERROR);
+                // Log the complete request data for debugging
+                templog.tlog("完整请求数据："+requireData.dump(),loglib::DEBUG);
             }
         }
         return result;
@@ -209,21 +217,21 @@ namespace acm{
     }
 
     // 处理function call, 传入func calls，附带日志
-    json AutoTest::handle_function(const std::vector<ns::Response::ToolCall> &func_calls){
+    json AutoTest::handle_function(const json &func_calls){
         // 处理function call
         std::vector<ToolMessage> result;
         // json result=json::array();
         for(auto &func_call:func_calls){
             ToolMessage temp;
-            temp.tool_call_id=func_call.id;
-            string funcName=func_call.function.name;
-            json funcArgs=func_call.function.arguments;
+            temp.tool_call_id=func_call["id"];
+            string funcName=func_call["function"]["name"];
+            json funcArgs=json::parse(func_call["function"]["arguments"].get<string>());
             if(funcName=="get_docs"){
                 if(check_func_call(funcArgs,funcName).empty()){
                     string docsName=funcArgs["DocsName"];
                     string docsType=funcArgs["DocsType"];
                     temp.content=get_docs(docsName,docsType);
-                    _testlog.tlog(_setting[f(Model)].get<string>()+"调用了函数: "+funcName+"参数: "+funcArgs.dump());
+                    _testlog.tlog(_setting[f(Model)].get<string>()+"调用了函数: "+funcName+"("+docsName+","+docsType+")");
                 }
             }
             else{
@@ -309,11 +317,11 @@ namespace acm{
         result=chat(session,useModel);
 
         // 使用AutoOpen库解析返回值
-        ns::Response response=result;
+        json response=result;
 
         // 循环处理一次中的function calls
-        while(!response.choices.empty()&&response.choices[0].finish_reason=="function_call"){
-            auto &message=response.choices[0].message;
+        while(!response["choices"].empty()&&response["choices"][0]["finish_reason"]=="tool_calls"){
+            auto &message=response["choices"][0]["message"];
             // json tempData = {
             //     {"content", choice.message.content},
             //     {"function_calls", choice.message.tool_calls}
@@ -322,27 +330,23 @@ namespace acm{
             // string tempContent = tempData["content"];
 
             // 处理function call，并输出日志
-            json toolMessage=handle_function(message.tool_calls);
+            json toolMessage=handle_function(message["tool_calls"]);
 
             // 拼接历史记录
-            if(!message.content.empty()){
-                session+={
-                    {"role","assistant"},
-                    { "content",message.content }
-                };
-            }
-            session+=toolMessage;
-
+            session+=message;
+            session+=toolMessage[0];
+            // 除去强制使用工具
+            _config["tool_choice"]="auto";
             // 发送请求
             result=chat(session);
             response=result;
         }
 
         // 读取最后一次数据
-        if(!response.choices[0].message.content.empty()){
+        if(!response["choices"][0]["message"]["content"].empty()){
             session.push_back({
                 { "role","assistant" },
-                { "content",response.choices[0].message.content }
+                { "content",response["choices"][0]["message"]["content"] }
                 });
         }
 
@@ -408,10 +412,10 @@ namespace acm{
             tempConfig.now_test=0;
             // _config[f(NowTest)]=0;
             // 初始化特例数量
-            tempConfig.special=30;
+            tempConfig.special=10;
             // _config[f(Special)]=2;
             // 初始化边界数量
-            tempConfig.edge=20;
+            tempConfig.edge=5;
             // _config[f(Edge)]=2;
             // 错误限制
             tempConfig.error_limit=2;
@@ -434,6 +438,8 @@ namespace acm{
             _config["weights"][0]=10;
             _config["weights"][1]=1;
             _config["weights"][2]=2;
+            // 工具调用
+            _config["tool_choice"]="auto";
             _config.save();
         }
     }
@@ -490,7 +496,7 @@ namespace acm{
             auto &history=_history.value();
             history=json::array();
             history.push_back({
-                { "role","user" },
+                { "role","system" },
                 { "content",_prompt["system"] }
                 });
             _history.save();
@@ -925,8 +931,10 @@ namespace acm{
             }
             else{
                 _testlog.tlog("正在生成"+nameStr);
+                // if(tryNums==0) _config["tool_choice"]="required";
                 // 处理请求
                 AI(prompt,session);
+                // _config["tool_choice"]="auto";
                 // 读取数据
                 json result;
                 try{
@@ -1011,6 +1019,10 @@ namespace acm{
             // 并截断后面的数据
             session.erase(session.begin()+3,session.end());
         }
+        // 合并prompt到system
+        session[0]["content"]=session[0]["content"].get<string>()+"\n"+session[1]["content"].get<string>()+"\n"+session[2]["content"].get<string>();
+        // 截断数据
+        session.erase(session.begin()+1,session.end());
         // 保存
         _history.save();
         bool temp;
@@ -1157,9 +1169,9 @@ namespace acm{
             // 设置路径
             process::Args args;
             // 特判生成数量
-            int &Special_nums=_temp_config.special;
+            int Special_nums=_config[f(Special)];
             // 边界生成数量
-            int &Edge_nums=_temp_config.edge;
+            int Edge_nums=_config[f(Edge)];
             // 生成随机哈希
             string hash=random_string(8);
             _randomSeed=dataName+" : "+hash+"\n";
@@ -1205,8 +1217,8 @@ namespace acm{
             if(res.status==process::STOP){
                 _testlog.tlog(info+": 数据验证成功");
                 _config[f(NowData)]=num;
-                // config.now_data=num;
-                // _config=config;
+                _config[f(Special)]=Special_nums;
+                _config[f(Edge)]=Edge_nums;
                 _config.save();
                 append_to(_baseConfigPath/"seed.txt",_randomSeed);
             }

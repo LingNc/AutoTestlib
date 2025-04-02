@@ -84,7 +84,7 @@ namespace acm{
         // 获取题目名称
         string get_problem_name();
         // 处理function call
-        json handle_function(const std::vector<ns::Response::ToolCall> &func_calls);
+        json handle_function(const json &func_calls);
         // 处理function call 参数名指定错误
         string check_func_call(const json &funcArgs,string &funcName);
         // 完全Ai，可以自动处理工具调用，可传入可选参数
