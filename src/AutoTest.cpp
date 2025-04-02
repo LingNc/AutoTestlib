@@ -1,3 +1,4 @@
+#include <random>
 #include "AutoTest.h"
 #include "AutoJson.h"
 #include "Judge.h"
@@ -407,10 +408,10 @@ namespace acm{
             tempConfig.now_test=0;
             // _config[f(NowTest)]=0;
             // 初始化特例数量
-            tempConfig.special=10;
+            tempConfig.special=30;
             // _config[f(Special)]=2;
             // 初始化边界数量
-            tempConfig.edge=10;
+            tempConfig.edge=20;
             // _config[f(Edge)]=2;
             // 错误限制
             tempConfig.error_limit=2;
@@ -425,6 +426,14 @@ namespace acm{
             _config["origin_name"]=_testfile.filename();
             // 找到test文件中对应的cph
             _config["cph_file"]=search_test_cph();
+            // 是否启用权重形式控制测试样例的输出 0 1 2的权重
+            _config["test_weight"]=false;
+            // 对应权重
+            _config["weights"]=json::array();
+            // 0 1 2的权重
+            _config["weights"][0]=10;
+            _config["weights"][1]=1;
+            _config["weights"][2]=2;
             _config.save();
         }
     }
@@ -742,8 +751,6 @@ namespace acm{
         }
         // 初始化临时存储数字
         _temp_config=_config.value();
-        // 初始化随机数存储
-        _randomSeed.set_path(_baseConfigPath/"seed.json");
         return true;
     }
     // 初始化配置文件夹
@@ -1053,14 +1060,52 @@ namespace acm{
         }
         return res;
     }
+    // 保存到文件
+    void AutoTest::append_to(const fs::path &filePath,const string &content){
+        // 追加到文件
+        std::ofstream file(filePath,std::ios::app);
+        if(!file.is_open()){
+            _testlog.tlog("无法打开文件: "+filePath.string(),loglib::ERROR);
+            throw std::runtime_error("无法打开文件: "+filePath.string());
+        }
+        file<<content;
+        file.close();
+    }
+    // 生成指定权重数字
+    int AutoTest::random_weight(int val0,int val1,int val2){
+        // 生成指定权重数字 按照val012的大小按权分配，生成加权概率的0，1，2三个数字
+        static std::mt19937 gen(static_cast<unsigned>(std::time(nullptr)));
+
+        // 计算总权重
+        int totalWeight = val0 + val1 + val2;
+        // 权重数组
+        std::vector<int> weights = { val0, val1, val2 };
+        // 生成1到总权重之间的随机数
+        std::uniform_int_distribution<> dist(1, totalWeight);
+        int randomNum = dist(gen);
+
+        // 根据权重选择数字
+        int cumulativeWeight = 0;
+        for (size_t i = 0; i < weights.size(); ++i) {
+            cumulativeWeight += weights[i];
+            if (randomNum <= cumulativeWeight) {
+                return i;
+            }
+        }
+
+        return 0; // 防止意外情况
+    }
     // 生成随机字符串
     string AutoTest::random_string(int length){
         // 生成随机字符串
-        static const char alphanum[]="0123456789abcdefghijklmnopqrstuvwxyz";
+        static const char alphanum[] = "0123456789abcdefghijklmnopqrstuvwxyz";
+        static std::mt19937 gen(std::chrono::system_clock::now().time_since_epoch().count());
+        std::uniform_int_distribution<> dist(0, sizeof(alphanum) - 2); // -2 because of null terminator
+
         string result;
         result.reserve(length);
-        for(int i=0;i<length;i++){
-            result+=alphanum[rand()%(sizeof(alphanum)-1)];
+        for (int i = 0; i < length; i++) {
+            result += alphanum[dist(gen)];
         }
         return result;
     }
@@ -1096,17 +1141,27 @@ namespace acm{
             int &Edge_nums=_temp_config.edge;
             // 生成随机哈希
             string hash=random_string(8);
-            _randomSeed[dataName]=hash;
-            if(Special_nums>0){
-                args.add(f(Generators)).add(1).add(hash);
-                Special_nums--;
-            }
-            else if(Edge_nums>0){
-                args.add(f(Generators)).add(2).add(hash);
-                Edge_nums--;
+            _randomSeed=dataName+" : "+hash+"\n";
+            // 是否启用权重输出
+            if(_config[f(Test_Weight)]){
+                // 生成权重
+                int weight=random_weight(_config[f(Weights)][0],
+                    _config[f(Weights)][1],
+                    _config[f(Weights)][2]);
+                args.add(f(Generators)).add(weight).add(hash);
             }
             else{
-                args.add(f(Generators)).add(0).add(hash);
+                if(Special_nums>0){
+                    args.add(f(Generators)).add(1).add(hash);
+                    Special_nums--;
+                }
+                else if(Edge_nums>0){
+                    args.add(f(Generators)).add(2).add(hash);
+                    Edge_nums--;
+                }
+                else{
+                    args.add(f(Generators)).add(0).add(hash);
+                }
             }
             // 生成数据并检查数据是否符合要求
             // 同步设置
@@ -1132,11 +1187,11 @@ namespace acm{
                 // config.now_data=num;
                 // _config=config;
                 _config.save();
-                _randomSeed.save();
+                append_to(_baseConfigPath/"seed.txt",_randomSeed);
             }
             else if(res.status==process::ERROR){
                 _testlog.tlog(info+": 数据生成不符合要求，正在重新生成。"+
-                    "不符合信息："+res.content,
+                    "不符合信息："+res.error,
                     loglib::WARNING);
                 // 重新生成本次数据
                 continue;

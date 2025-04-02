@@ -48,6 +48,8 @@ namespace acm{
         JudgeStatus, //> 判题状态
         Special, // > 特例
         Edge, // > 边界
+        Test_Weight, // > 测试权重
+        Weights, // > 权重
     };
     // 配置类
     class AutoConfig{

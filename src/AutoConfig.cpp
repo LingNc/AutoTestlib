@@ -62,6 +62,10 @@ namespace acm{
             return "special";
         case Edge:
             return "edge";
+        case Test_Weight:
+            return "test_weight";
+        case Weights:
+            return "weights";
         default:
             throw std::runtime_error("未知配置项");
         }

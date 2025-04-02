@@ -117,8 +117,12 @@ namespace acm{
         bool init_temp();
         // 生成随机字符串
         string random_string(int length);
+        // 生成指定权重数字
+        int random_weight(int val0,int val1,int val2);
         // 随机数种子保存
-        AutoConfig _randomSeed;
+        string _randomSeed;
+        // 保存到文件
+        void append_to(const fs::path &filePath,const string &content);
     public:
         // 构造函数
         AutoTest(const string &name="");
