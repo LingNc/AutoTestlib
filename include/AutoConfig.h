@@ -68,7 +68,7 @@ namespace acm{
         void save(size_t dumpNum=4);
         // 保存
         template<typename T>
-        void save(T config){
+        void save(){
             sync<T>();
             save();
         }

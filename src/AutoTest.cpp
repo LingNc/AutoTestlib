@@ -490,7 +490,7 @@ namespace acm{
             auto &history=_history.value();
             history=json::array();
             history.push_back({
-                { "role","system" },
+                { "role","user" },
                 { "content",_prompt["system"] }
                 });
             _history.save();
@@ -912,51 +912,72 @@ namespace acm{
         string srcName=targetName+".cpp";
         fs::path targetPath=_baseProgramPath/targetName;
         fs::path srcPath=_basePath/srcName;
-        // 文件是否存在标识符
-        bool srcExist=false;
-        // 检查文件是否存在
-        if(fs::exists(srcPath)){
-            _testlog.tlog(nameStr+"源文件已经存在");
-            srcExist=true;
-        }
-        else{
-            _testlog.tlog("正在生成"+nameStr);
-            string prompt=_prompt[f(name)];
-            // 处理请求
-            AI(prompt,session);
-            _testlog.tlog(nameStr+"生成成功");
-            // 读取数据
-            json result;
-            try{
-                result=json::parse(string(session.back()["content"]));
+        string prompt=_prompt[f(name)];
+        // 重试次数
+        int tryNums=0;
+        while(true){
+            // 文件是否存在标识符
+            bool srcExist=false;
+            // 检查文件是否存在
+            if(fs::exists(srcPath)){
+                _testlog.tlog(nameStr+"源文件已经存在");
+                srcExist=true;
             }
-            catch(const json::exception &e){
-                _testlog.tlog("JSON解析失败: "+string(e.what()),loglib::ERROR);
-                return false;
+            else{
+                _testlog.tlog("正在生成"+nameStr);
+                // 处理请求
+                AI(prompt,session);
+                // 读取数据
+                json result;
+                try{
+                    result=json::parse(string(session.back()["content"]));
+                    _testlog.tlog(nameStr+"生成成功");
+                }
+                catch(const json::exception &e){
+                    _testlog.tlog("JSON解析失败: "+string(e.what()),loglib::ERROR);
+                    if(tryNums>=3){
+                        _testlog.tlog("JSON解析失败次数过多,请修改提示词",loglib::ERROR);
+                        return false;
+                    }
+                    _testlog.tlog("正在重试第"+std::to_string(tryNums)+"生成"+nameStr,loglib::WARNING);
+                    prompt="数据生成器JSON解析失败: "+string(e.what());
+                    tryNums++;
+                    continue;
+                }
+                string code=result["code"];
+                // 写入文件
+                wfile(srcPath,code);
             }
-            string code=result["code"];
-            // 写入文件
-            wfile(srcPath,code);
-        }
-        // 编译文件
-        // 如果已经编译则不需要再编译，但是前提是前面不需要重新生成源代码
-        if(srcExist&&fs::exists(targetPath)){
-            _testlog.tlog(nameStr+"编译文件已经存在");
-            return true;
-        }
-        else{
-            _testlog.tlog("正在编译"+nameStr);
-            process::Args args("g++");
-            args.add(srcPath).add("-o").add(targetPath);
-            process::Process proc("/bin/g++",args);
-            proc.start();
-            process::Status status=proc.wait();
-            // 如果不是正常退出输出错误信息
-            if(status!=process::STOP){
-                _testlog.tlog(nameStr+"编译失败",loglib::ERROR);
-                _testlog.tlog("编译错误信息: "+proc.get_error(),loglib::ERROR);
-                return false;
+            // 编译文件
+            // 如果已经编译则不需要再编译，但是前提是前面不需要重新生成源代码
+            if(srcExist&&fs::exists(targetPath)){
+                _testlog.tlog(nameStr+"编译文件已经存在");
+                return true;
             }
+            else{
+                _testlog.tlog("正在编译"+nameStr);
+                process::Args args("g++");
+                args.add(srcPath).add("-o").add(targetPath);
+                process::Process proc("/bin/g++",args);
+                proc.start();
+                process::Status status=proc.wait();
+                string error=proc.get_error();
+                // 如果不是正常退出输出错误信息
+                if(status!=process::STOP){
+                    _testlog.tlog(nameStr+"编译失败,编译错误信息: \n"+error,loglib::ERROR);
+                    if(tryNums>=3){
+                        _testlog.tlog("编译失败次数过多,请检查提示词",loglib::ERROR);
+                        return false;
+                    }
+                    _testlog.tlog("正在重试第"+std::to_string(tryNums)+"次编译"+nameStr,loglib::WARNING);
+                    prompt="编译失败,编译错误信息: "+error;
+                    // 删除源文件
+                    fs::remove(srcPath);
+                    tryNums++;
+                    continue;
+                }
+            }
+            break;
         }
         return true;
     }
@@ -1077,18 +1098,18 @@ namespace acm{
         static std::mt19937 gen(static_cast<unsigned>(std::time(nullptr)));
 
         // 计算总权重
-        int totalWeight = val0 + val1 + val2;
+        int totalWeight=val0+val1+val2;
         // 权重数组
-        std::vector<int> weights = { val0, val1, val2 };
+        std::vector<int> weights={ val0,val1,val2 };
         // 生成1到总权重之间的随机数
-        std::uniform_int_distribution<> dist(1, totalWeight);
-        int randomNum = dist(gen);
+        std::uniform_int_distribution<> dist(1,totalWeight);
+        int randomNum=dist(gen);
 
         // 根据权重选择数字
-        int cumulativeWeight = 0;
-        for (size_t i = 0; i < weights.size(); ++i) {
-            cumulativeWeight += weights[i];
-            if (randomNum <= cumulativeWeight) {
+        int cumulativeWeight=0;
+        for(size_t i=0; i<weights.size(); ++i){
+            cumulativeWeight+=weights[i];
+            if(randomNum<=cumulativeWeight){
                 return i;
             }
         }
@@ -1098,14 +1119,14 @@ namespace acm{
     // 生成随机字符串
     string AutoTest::random_string(int length){
         // 生成随机字符串
-        static const char alphanum[] = "0123456789abcdefghijklmnopqrstuvwxyz";
+        static const char alphanum[]="0123456789abcdefghijklmnopqrstuvwxyz";
         static std::mt19937 gen(std::chrono::system_clock::now().time_since_epoch().count());
-        std::uniform_int_distribution<> dist(0, sizeof(alphanum) - 2); // -2 because of null terminator
+        std::uniform_int_distribution<> dist(0,sizeof(alphanum)-2); // -2 because of null terminator
 
         string result;
         result.reserve(length);
-        for (int i = 0; i < length; i++) {
-            result += alphanum[dist(gen)];
+        for(int i=0; i<length; i++){
+            result+=alphanum[dist(gen)];
         }
         return result;
     }
@@ -1479,6 +1500,11 @@ namespace acm{
                     { "input",temp["in"] },
                     { "output",temp["out"] }
                 };
+                // 如果已经存在则不添加
+                if(std::find(cph_json.begin(),cph_json.end(),new_test)==cph_json.end()){
+                    _testlog.tlog("CPH文件中已经存在该测试用例",loglib::WARNING);
+                    return;
+                }
                 // 添加到测试用例列表
                 cph_json["tests"].push_back(new_test);
                 // 写回文件
