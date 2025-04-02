@@ -134,6 +134,15 @@
             ],
             "preLaunchTask": "make main",
             "miDebuggerPath": "/usr/bin/gdb"
+        },
+        {
+            "name": "clang - 调试main (LLDB)",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/main",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "make main"
         }
     ]
 }

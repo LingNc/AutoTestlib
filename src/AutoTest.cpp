@@ -828,15 +828,19 @@ namespace acm{
         _problemfile=_basePath/"problem.md";
         _testfile=_basePath/"test.cpp";
         _ACfile=_basePath/"AC.cpp";
-        _config.set_path(_basePath/"config.json");
+        // 设置配置文件基础文件夹
+        _baseConfigPath=_basePath/"config";
+        _baseProgramPath=_basePath/"exec";
+        // 设置配置文件文件夹
+        _config.set_path(_baseConfigPath/"config.json");
         // 读取配置文件
         if(!_config.exist()){
             _log.tlog("配置文件不存在,正在重建",loglib::WARNING);
             _name=path.filename().string();
+            init_test_config();
         }
         // 读取配置项
         _name=_config[f(Test_Name)];
-        _config.save();
         // 读取题目
         _problem=rfile(_problemfile);
         if(_problem.empty()){
@@ -881,7 +885,7 @@ namespace acm{
         // 初始化系统提示词
         init_system();
         // 读入错误样例集合
-        _WAdatas.set_path(_basePath/"WAdatas.json");
+        _WAdatas.set_path(_baseConfigPath/"WAdatas.json");
         if(!_WAdatas.exist()){
             _log.tlog("错误样例集合不存在,正在重建",loglib::WARNING);
             _WAdatas.value()=json::array();
@@ -1227,6 +1231,7 @@ namespace acm{
                     "不符合信息："+res.error,
                     loglib::WARNING);
                 // 重新生成本次数据
+                testnum++;
                 continue;
             }
             else{
@@ -1513,7 +1518,7 @@ namespace acm{
                     { "output",temp["out"] }
                 };
                 // 如果已经存在则不添加
-                if(std::find(cph_json.begin(),cph_json.end(),new_test)==cph_json.end()){
+                if(std::find(cph_json.begin(),cph_json.end(),new_test)!=cph_json.end()){
                     _testlog.tlog("CPH文件中已经存在该测试用例",loglib::WARNING);
                     return;
                 }
