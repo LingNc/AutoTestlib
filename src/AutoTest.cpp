@@ -103,13 +103,19 @@ namespace acm{
             if(result.contains("code")){
                 errorCode=result["code"];
             }
-            string message=result["message"];
-            string theData=result["data"].dump();
-            templog.tlog(
-                "请求失败,错误代码: "+std::to_string(errorCode)+
-                ",错误信息: "+message+
-                ",返回数据: "+theData
-                ,loglib::ERROR);
+            if(result.contains("message")){
+                string message=result["message"];
+                string theData=result["data"].dump();
+                templog.tlog(
+                    "请求失败,错误代码: "+std::to_string(errorCode)+
+                    ",错误信息: "+message+
+                    ",返回数据: "+theData
+                    ,loglib::ERROR);
+            }
+            else{
+                string errorMessage=result.dump();
+                templog.tlog("请求失败,返回数据: "+errorMessage,loglib::ERROR);
+            }
             // 检查是否有核心项缺失
             // Use the Response structure to check for missing fields
             ns::Request temp=result;
@@ -428,8 +434,6 @@ namespace acm{
             _config=tempConfig;
             // cph文件名称（源文件名称）
             _config["origin_name"]=_testfile.filename();
-            // 找到test文件中对应的cph
-            _config["cph_file"]=search_test_cph();
             // 是否启用权重形式控制测试样例的输出 0 1 2的权重
             _config["test_weight"]=false;
             // 对应权重
@@ -440,6 +444,18 @@ namespace acm{
             _config["weights"][2]=2;
             // 工具调用
             _config["tool_choice"]="auto";
+            // 路径
+            _config["the_path"]=json::object();
+            auto &the_path=_config["the_path"];
+            // 找到test文件中对应的cph
+            _config["cph_file"]=search_test_cph();
+            // 保存配置文件路径
+            the_path["config_path"]=_baseConfigPath;
+            // 题目路径
+            the_path["problem_path"]=_problemfile.string();
+            // 测试代码路径
+            the_path["test_path"]=_testfile.string();
+            // AC代码路径
             _config.save();
         }
     }
