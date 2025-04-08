@@ -404,34 +404,24 @@ namespace acm{
         _config.set_path(_baseConfigPath/"config.json");
         if(!_config.exist()){
             _log.tlog("测试配置文件不存在，正在初始化配置文件",loglib::WARNING);
-            ns::TestConfig tempConfig;
             // 默认跟随路径
-            tempConfig.name=_name;
-            // _config[f(Test_Name)]=_name;
+            _config[f(Test_Name)]=_name;
             // 默认跟随全局配置
-            tempConfig.attach_global=true;
-            // _config[f(Attach_Global)]=true;
+            _config[f(Attach_Global)]=true;
             // 生成测试数量，以及提供的初始化随机数值
-            tempConfig.now_data=0;
-            // _config[f(NowData)]=0;
+            _config[f(NowData)]=0;
             // 现在测试到的位置
-            tempConfig.now_test=0;
-            // _config[f(NowTest)]=0;
+            _config[f(NowTest)]=0;
             // 初始化特例数量
-            tempConfig.special=10;
-            // _config[f(Special)]=2;
+            _config[f(Special)]=10;
             // 初始化边界数量
-            tempConfig.edge=5;
-            // _config[f(Edge)]=2;
+            _config[f(Edge)]=5;
             // 错误限制
-            tempConfig.error_limit=2;
-            // _config[f(ErrorLimit)]=2;
+            _config[f(ErrorLimit)]=2;
             // 默认内存限制
-            tempConfig.mem_limit=256;
+            _config[f(MemLimit)]=256;
             // 默认时间限制
-            tempConfig.time_limit=1000;
-            // 转换格式
-            _config=tempConfig;
+            _config[f(TimeLimit)]=1000;
             // cph文件名称（源文件名称）
             _config["origin_name"]=_testfile.filename();
             // 是否启用权重形式控制测试样例的输出 0 1 2的权重
