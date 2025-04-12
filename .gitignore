@@ -11,3 +11,5 @@ Code/
 !*.md
 !config/tools/*.json
 !Makefile
+!NOTICE
+!LICENSE
