@@ -1155,13 +1155,10 @@ namespace acm{
     // 生成数据
     bool AutoTest::generate_data(int testnum){
         // 检测是否已经编译和生成
-        if(fs::exists(_baseProgramPath/f(Generators))&&
+        if(!(fs::exists(_baseProgramPath/f(Generators))&&
             fs::exists(_baseProgramPath/f(Validators))&&
-            fs::exists(_baseProgramPath/f(Checkers))){
-            _log.tlog("测试文件已经编译,开始生成数据");
-        }
-        else{
-            _log.tlog("测试文件不存在,请先编译",loglib::ERROR);
+            fs::exists(_baseProgramPath/f(Checkers)))){
+            _testlog.tlog("测试文件不存在,请先编译",loglib::ERROR);
             return false;
         }
 
@@ -1281,11 +1278,8 @@ namespace acm{
             }
         }
         // 检测测试数据是否已经生成
-        if(_config.value().find(f(DataNum))!=_config.value().end()){
-            _log.tlog("测试数据已经生成,开始测试数据");
-        }
-        else{
-            _log.tlog("测试数据不存在,请先生成数据",loglib::ERROR);
+        if(_config.value().find(f(DataNum))==_config.value().end()){
+            _testlog.tlog("测试数据不存在,请先生成数据",loglib::ERROR);
             return false;
         }
         // auto config=_config.get<ns::TestConfig>();
