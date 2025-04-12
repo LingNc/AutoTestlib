@@ -410,10 +410,10 @@ AutoTestlib 使用 [MIT 许可证](https://opensource.org/licenses/MIT)，这是
 
 ## 🔄 第三方代码
 
-- **Testlib**: 包含 Mike Mirzayanov 的 Testlib 库（[原仓库](https://github.com/MikeMirzayanov/testlib)），用于生成测试数据、验证输入格式和检查输出结果。Testlib 遵循其自带的宽松许可证，与本项目的 MIT 许可证兼容。
-- **nlohmann/json**: 用于解析和生成 JSON 数据的 C++ 库（[原仓库](https://github.com/nlohmann/json)），使用 MIT 许可证。
+- **Testlib**: 包含 Mike Mirzayanov 的 Testlib 库（[原仓库](https://github.com/MikeMirzayanov/testlib)），用于生成测试数据、验证输入格式和检查输出结果。
+- **nlohmann/json**: 用于解析和生成 JSON 数据的 C++ 库（[原仓库](https://github.com/nlohmann/json)）。
+- **openai.hpp**: OpenAI API 客户端，支持与 OpenAI API 进行通信（[原仓库](https://github.com/olrea/openai-cpp)）。
 - **loglib**: 日志库，用于记录程序运行过程中的日志信息，自主开发。
-- **openai.hpp**: OpenAI API 客户端，支持与 OpenAI 和 DeepSeek API 进行通信，自主开发。
 
 ## 📝 待实现功能
 
