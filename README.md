@@ -19,6 +19,12 @@ AutoTestlib 是一个为算法竞赛编程设计的自动化测试框架，基�
 - **结果检查**: 智能判断输出结果的正确性
 - **CPH 集成**: 与 Competitive Programming Helper VSCode 扩展集成，自动添加错误样例
 
+## ⚠️ 平台支持与限制
+
+- **操作系统**: 目前仅支持 Linux 平台，依赖于 Linux 系统调用
+- **编译器**: 需要支持 C++17 或更高版本的编译器（如 GCC 7.0+）
+- **内存限制**: 对内存限制的实现依赖于 Linux 的 cgroups，如果您的系统不支持 cgroups，内存限制功能可能无法正常工作
+
 ## 🚀 快速开始
 
 ### 安装要求
@@ -401,6 +407,21 @@ AutoTestlib 使用 `loglib.hpp` 库进行日志记录：
 ## 📄 许可证
 
 AutoTestlib 使用 [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.en.html) 许可证，这是一个具有传播性的开源许可证，确保所有衍生作品也必须以相同条款开源。
+
+## 🔄 第三方代码
+
+- **testlib**: 包含 Mike Mirzayanov 的 Testlib 库（[原仓库](https://github.com/MikeMirzayanov/testlib)），用于生成测试数据、验证输入格式和检查输出结果。
+- **nlohmann/json**: 用于解析和生成 JSON 数据的 C++ 库（[原仓库](https://github.com/nlohmann/json)）。
+- **openai.hpp**: OpenAI API 可编程客户端，支持与 OpenAI API 进行通信（[原仓库](https://github.com/olrea/openai-cpp)）。
+- **loglib**: 日志库，用于记录程序运行过程中的日志信息，自主开发。
+
+## 📝 待实现功能
+
+- [ ] **跨平台支持**: 计划实现对 Windows 的支持
+- [ ] **图形用户界面**: 开发基于 Web 的图形用户界面，能够更方便地使用该框架
+- [ ] **交互题支持**: 完善对竞赛中交互题型的支持
+- [ ] **并行测试**: 实现并行测试多个样例以提高效率
+- [ ] **Docker 支持**: 提供 Docker 容器支持，简化环境配置
 
 ## 📢 贡献与联系
 
