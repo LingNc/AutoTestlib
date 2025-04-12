@@ -1,10 +1,10 @@
 # AutoTestlib - 算法竞赛自动化测试框架
 
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **AutoTestlib - 算法竞赛自动化测试框架**
 © 2024 版权所有 绫袅LingNc
-本程序为自由软件，遵循GPLv3协议。详情请见 [LICENSE](LICENSE) 文件。
+本程序采用 MIT 许可证。详情请见 [LICENSE](LICENSE) 文件。
 
 AutoTestlib 是一个为算法竞赛编程设计的自动化测试框架，基于 Testlib 扩展开发，集成了 AI 辅助功能。它能够自动生成测试数据、验证输入格式、检查输出结果并进行程序对拍，大大简化了算法竞赛中的测试流程。
 
@@ -406,14 +406,14 @@ AutoTestlib 使用 `loglib.hpp` 库进行日志记录：
 
 ## 📄 许可证
 
-AutoTestlib 使用 [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.en.html) 许可证，这是一个具有传播性的开源许可证，确保所有衍生作品也必须以相同条款开源。
+AutoTestlib 使用 [MIT 许可证](https://opensource.org/licenses/MIT)，这是一个宽松的开源许可证，允许任何人以任何目的使用、修改、分发本软件，只要在副本中包含原始版权声明和许可声明即可。
 
 ## 🔄 第三方代码
 
-- **testlib**: 包含 Mike Mirzayanov 的 Testlib 库（[原仓库](https://github.com/MikeMirzayanov/testlib)），用于生成测试数据、验证输入格式和检查输出结果。
-- **nlohmann/json**: 用于解析和生成 JSON 数据的 C++ 库（[原仓库](https://github.com/nlohmann/json)）。
-- **openai.hpp**: OpenAI API 可编程客户端，支持与 OpenAI API 进行通信（[原仓库](https://github.com/olrea/openai-cpp)）。
+- **Testlib**: 包含 Mike Mirzayanov 的 Testlib 库（[原仓库](https://github.com/MikeMirzayanov/testlib)），用于生成测试数据、验证输入格式和检查输出结果。Testlib 遵循其自带的宽松许可证，与本项目的 MIT 许可证兼容。
+- **nlohmann/json**: 用于解析和生成 JSON 数据的 C++ 库（[原仓库](https://github.com/nlohmann/json)），使用 MIT 许可证。
 - **loglib**: 日志库，用于记录程序运行过程中的日志信息，自主开发。
+- **openai.hpp**: OpenAI API 客户端，支持与 OpenAI 和 DeepSeek API 进行通信，自主开发。
 
 ## 📝 待实现功能
 
