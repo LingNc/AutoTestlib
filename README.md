@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **AutoTestlib - 算法竞赛自动化测试框架**
-© 2024 版权所有 绫袅LingNc
+© 2025 版权所有 绫袅LingNc
 本程序采用 MIT 许可证。详情请见 [LICENSE](LICENSE) 文件。
 
 AutoTestlib 是一个为算法竞赛编程设计的自动化测试框架，基于 Testlib 扩展开发，集成了 AI 辅助功能。它能够自动生成测试数据、验证输入格式、检查输出结果并进行程序对拍，大大简化了算法竞赛中的测试流程。
@@ -32,6 +32,8 @@ AutoTestlib 是一个为算法竞赛编程设计的自动化测试框架，基�
 - C++17 或更高版本
 - Linux 环境（目前主要支持 Linux 系统调用）
 - 使用兼容 OpenAI API 密钥（支持 OpenAI 或 DeepSeek API）
+- 编译依赖
+    - `curl`库：Linux下使用`asudo apt-get install libcurl4-openssl-dev`
 
 ### 编译项目
 
@@ -39,7 +41,7 @@ AutoTestlib 是一个为算法竞赛编程设计的自动化测试框架，基�
 # 编译主程序
 make main
 
-# 编译并运行测试
+# 编译并运行测试（可选）
 make test
 ```
 
@@ -75,7 +77,7 @@ make test
 AutoTestlib 支持多种配置选项，通过 JSON 文件进行管理。
 
 ### 全局配置文件 (`config/config.json`)
-
+该配置文件在程序运行时自动生成，也可以手动编辑
 ```json
 {
     "allow_path": "test_path",        // 默认路径跟随策略
@@ -92,7 +94,7 @@ AutoTestlib 支持多种配置选项，通过 JSON 文件进行管理。
 ```
 
 ### 测试项目配置文件 (`[TestName]/config.json`)
-
+该配置文件由AI根据不同的题目情况自动生成，也可以在生成样例的时候手动修改
 ```json
 {
     "name": "TestName",               // 测试名称
